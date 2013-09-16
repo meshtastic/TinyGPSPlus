@@ -35,7 +35,7 @@ distanceBetween	KEYWORD2
 courseTo	KEYWORD2
 cardinal	KEYWORD2
 charsProcessed	KEYWORD2
-goodSentences	KEYWORD2
+fixSentences	KEYWORD2
 failedChecksum	KEYWORD2
 passedChecksum	KEYWORD2
 isValid	KEYWORD2

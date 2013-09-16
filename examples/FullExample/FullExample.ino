@@ -34,7 +34,7 @@ void loop()
   static const double LONDON_LAT = 51.508131, LONDON_LON = -0.128002;
 
   printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
-  printInt(gps.hdop.value(), gps.hdop.isValid(), 5);
+  printInt(gps.quality.hdop().value(), gps.quality.hdop().isValid(), 5);
   printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);
   printFloat(gps.location.lng(), gps.location.isValid(), 12, 6);
   printInt(gps.location.age(), gps.location.isValid(), 5);
@@ -66,7 +66,7 @@ void loop()
   printStr(gps.location.isValid() ? cardinalToLondon : "*** ", 6);
 
   printInt(gps.charsProcessed(), true, 6);
-  printInt(gps.goodSentences(), true, 10);
+  printInt(gps.fixSentences(), true, 10);
   printInt(gps.failedChecksum(), true, 9);
   Serial.println();
   

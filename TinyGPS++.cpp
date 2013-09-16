@@ -36,11 +36,10 @@ TinyGPSPlus::TinyGPSPlus()
   ,  curSentenceType(GPS_SENTENCE_OTHER)
   ,  curTermNumber(0)
   ,  curTermOffset(0)
-  ,  gpsDataGood(false)
   ,  customElts(0)
   ,  customCandidates(0)
   ,  encodedCharCount(0)
-  ,  goodSentenceCount(0)
+  ,  fixSentenceCount(0)
   ,  failedChecksumCount(0)
   ,  passedChecksumCount(0)
 {
@@ -81,7 +80,6 @@ bool TinyGPSPlus::encode(char c)
     parity = 0;
     curSentenceType = GPS_SENTENCE_OTHER;
     isChecksumTerm = false;
-    gpsDataGood = false;
     return false;
 
   default: // ordinary characters
@@ -150,34 +148,34 @@ uint32_t TinyGPSPlus::parseDegrees(const char *term)
 // Returns true if new sentence has just passed checksum test and is validated
 bool TinyGPSPlus::endOfTermHandler()
 {
-  // If it's the checksum term, and the checksum checks out and it's got "good" data, then commit it
+  // If it's the checksum term, and the checksum checks out then commit it
   if (isChecksumTerm)
   {
     byte checksum = 16 * fromHex(term[0]) + fromHex(term[1]);
     if (checksum == parity)
     {
       passedChecksumCount++;
-      if (gpsDataGood)
-      {
-        ++goodSentenceCount;
+      if (quality.solution() == GPS_SOLUTION_FIX)
+        ++fixSentenceCount;
 
-        switch(curSentenceType)
-        {
-        case GPS_SENTENCE_GPRMC:
-           date.commit();
-           time.commit();
-           location.commit();
-           speed.commit();
-           course.commit();
-          break;
-        case GPS_SENTENCE_GPGGA:
-           time.commit();
-           location.commit();
-           altitude.commit();
-           satellites.commit();
-           hdop.commit();
-          break;
-        }
+      switch(curSentenceType)
+      {
+      case GPS_SENTENCE_GPRMC:
+         date.commit();
+         time.commit();
+         location.commit();
+         speed.commit();
+         course.commit();
+         quality.commit();
+         break;
+      case GPS_SENTENCE_GPGGA:
+         time.commit();
+         location.commit();
+         altitude.commit();
+         satellites.commit();
+         quality.commit();
+         quality.hdop().commit();
+         break;
       }
 
       // Commit all custom listeners of this sentence type
@@ -185,7 +183,6 @@ bool TinyGPSPlus::endOfTermHandler()
          p->commit();
       return true;
     }
-
     else
     {
       ++failedChecksumCount;
@@ -220,7 +217,10 @@ bool TinyGPSPlus::endOfTermHandler()
       time.setTime(term);
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 2): // GPRMC validity
-      gpsDataGood = term[0] == 'A';
+      if (term[0] == 'A')
+        quality.setSolution(GPS_SOLUTION_FIX);
+      else
+        quality.setSolution(GPS_SOLUTION_UNKNOWN);
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 3): // Latitude
     case COMBINE(GPS_SENTENCE_GPGGA, 2):
@@ -250,13 +250,19 @@ bool TinyGPSPlus::endOfTermHandler()
       date.setDate(term);
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 6): // Fix data (GPGGA)
-      gpsDataGood = term[0] > '0';
+      // Anything above solution 0 is a fix with varying degrees of precision
+      // with GPS Fix (1) and DGPS Fix (2) being the most common in consumer
+      // receivers.
+      if (term[0] > '0')
+         quality.setSolution(GPS_SOLUTION_FIX);
+       else
+         quality.setSolution(GPS_SOLUTION_UNKNOWN);
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 7): // Satellites used (GPGGA)
       satellites.set(term);
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 8): // HDOP
-      hdop.set(term);
+      quality.hdop().set(term);
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 9): // Altitude (GPGGA)
       altitude.set(term);
@@ -444,6 +450,34 @@ void TinyGPSInteger::commit()
 void TinyGPSInteger::set(const char *term)
 {
    newval = atol(term);
+}
+
+//
+// Quality
+//
+TinyGPSDecimal& TinyGPSQuality::hdop()
+{
+   updated = false;
+   return dhdop;
+}
+
+uint8_t TinyGPSQuality::solution()
+{
+   updated = false;
+   return isolution;
+}
+
+void TinyGPSQuality::commit()
+{
+   isolution = newSolution;
+
+   lastCommitTime = millis();
+   valid = updated = true;
+}
+
+void TinyGPSQuality::setSolution(uint8_t solution)
+{
+   newSolution = solution;
 }
 
 TinyGPSCustom::TinyGPSCustom(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber)

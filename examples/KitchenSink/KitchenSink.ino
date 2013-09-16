@@ -167,8 +167,8 @@ void loop()
 
     Serial.print(F("DIAGS      Chars="));
     Serial.print(gps.charsProcessed());
-    Serial.print(F(" Good-sentences="));
-    Serial.print(gps.goodSentences());
+    Serial.print(F(" Fix-sentences="));
+    Serial.print(gps.fixSentences());
     Serial.print(F(" Failed-checksum="));
     Serial.print(gps.failedChecksum());
     Serial.print(F(" Passed-checksum="));

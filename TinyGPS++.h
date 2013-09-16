@@ -39,6 +39,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define _GPS_KM_PER_METER 0.001
 #define _GPS_FEET_PER_METER 3.2808399
 #define _GPS_MAX_FIELD_SIZE 15
+#define _GPS_INVALID_TIME (uint32_t)ULONG_MAX
+enum { GPS_SOLUTION_UNKNOWN, GPS_SOLUTION_FIX };
+
 /*
    Field       Type    Format    Source                   Notes
    -----       ----    ------    ------                   -----
@@ -49,7 +52,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
    Speed       u32     kn100     GPRMC.7                  Decimal
    Course      u32     deg100    GPRMC.8                  Decimal
    Date        u32     ddmmyy    GPRMC.9
-   FixValid    bool    isgood    GPGGA.6                  > '0'
+   FixValid    bool    isfix     GPGGA.6                  > '0'
    Satellites  u8      sats      GPGGA.7                  Decimal
    HDOP        u32     hdop100   GPGGA.8                  Decimal
    Altitude    i32     cm        GPGGA.9                  Decimal
@@ -61,7 +64,7 @@ struct TinyGPSLocation
 public:
    bool isValid() const    { return valid; }
    bool isUpdated() const  { return updated; }
-   uint32_t age() const    { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const    { return valid ? millis() - lastCommitTime : _GPS_INVALID_TIME; }
 
    int32_t rawLat()        { updated = false; return ilat; }
    int32_t rawLng()        { updated = false; return ilng; }
@@ -86,7 +89,7 @@ struct TinyGPSDate
 public:
    bool isValid() const       { return valid; }
    bool isUpdated() const     { return updated; }
-   uint32_t age() const       { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const       { return valid ? millis() - lastCommitTime : _GPS_INVALID_TIME; }
 
    uint32_t value()           { updated = false; return date; }
    uint16_t year();
@@ -110,7 +113,7 @@ struct TinyGPSTime
 public:
    bool isValid() const       { return valid; }
    bool isUpdated() const     { return updated; }
-   uint32_t age() const       { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const       { return valid ? millis() - lastCommitTime : _GPS_INVALID_TIME; }
 
    uint32_t value()           { updated = false; return time; }
    uint8_t hour();
@@ -135,7 +138,7 @@ struct TinyGPSDecimal
 public:
    bool isValid() const    { return valid; }
    bool isUpdated() const  { return updated; }
-   uint32_t age() const    { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const    { return valid ? millis() - lastCommitTime : _GPS_INVALID_TIME; }
    int32_t value()         { updated = false; return val; }
 
    TinyGPSDecimal() : valid(false), updated(false), val(0)
@@ -155,7 +158,7 @@ struct TinyGPSInteger
 public:
    bool isValid() const    { return valid; }
    bool isUpdated() const  { return updated; }
-   uint32_t age() const    { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const    { return valid ? millis() - lastCommitTime : _GPS_INVALID_TIME; }
    uint32_t value()        { updated = false; return val; }
 
    TinyGPSInteger() : valid(false), updated(false), val(0)
@@ -167,6 +170,31 @@ private:
    uint32_t val, newval;
    void commit();
    void set(const char *term);
+};
+
+struct TinyGPSQuality
+{
+   friend class TinyGPSPlus;
+public:
+   bool isValid() const    { return valid; }
+   bool isUpdated() const  { return updated; }
+   uint32_t age() const    { return valid ? millis() - lastCommitTime : _GPS_INVALID_TIME; }
+
+   TinyGPSDecimal& hdop();
+   uint8_t solution();
+
+   TinyGPSQuality()
+      : isolution(GPS_SOLUTION_UNKNOWN)
+   {}
+
+private:
+   bool valid, updated;
+   TinyGPSDecimal dhdop;
+   uint8_t isolution, newSolution;
+   uint32_t lastCommitTime;
+
+   void commit();
+   void setSolution(uint8_t solution);
 };
 
 struct TinyGPSSpeed : TinyGPSDecimal
@@ -194,13 +222,13 @@ class TinyGPSPlus;
 class TinyGPSCustom
 {
 public:
-   TinyGPSCustom() {};
+   TinyGPSCustom() {}
    TinyGPSCustom(TinyGPSPlus &gps, const char *sentenceName, int termNumber);
    void begin(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber);
 
    bool isUpdated() const  { return updated; }
    bool isValid() const    { return valid; }
-   uint32_t age() const    { return valid ? millis() - lastCommitTime : (uint32_t)ULONG_MAX; }
+   uint32_t age() const    { return valid ? millis() - lastCommitTime : _GPS_INVALID_TIME; }
    const char *value()     { updated = false; return buffer; }
 
 private:
@@ -231,7 +259,7 @@ public:
   TinyGPSCourse course;
   TinyGPSAltitude altitude;
   TinyGPSInteger satellites;
-  TinyGPSDecimal hdop;
+  TinyGPSQuality quality;
 
   static int libraryVersion() { return _GPS_VERSION; }
 
@@ -243,7 +271,7 @@ public:
   static uint32_t parseDegrees(const char *term);
 
   uint32_t charsProcessed() const { return encodedCharCount; }
-  uint32_t goodSentences()  const { return goodSentenceCount; }
+  uint32_t fixSentences()   const { return fixSentenceCount; }
   uint32_t failedChecksum() const { return failedChecksumCount; }
   uint32_t passedChecksum() const { return passedChecksumCount; }
 
@@ -257,7 +285,6 @@ private:
   uint8_t curSentenceType;
   uint8_t curTermNumber;
   uint8_t curTermOffset;
-  bool gpsDataGood;
 
   // custom element support
   friend class TinyGPSCustom;
@@ -267,7 +294,7 @@ private:
 
   // statistics
   uint32_t encodedCharCount;
-  uint32_t goodSentenceCount;
+  uint32_t fixSentenceCount;
   uint32_t failedChecksumCount;
   uint32_t passedChecksumCount;
 
