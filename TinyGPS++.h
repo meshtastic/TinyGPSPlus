@@ -31,6 +31,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #endif
 #include <limits.h>
 
+/********************----- Options -----********************/
+//#define TINYGPSPLUS_OPTION_NO_CUSTOM_FIELDS
+//#define TINYGPSPLUS_OPTION_NO_STATISTICS
+/**************************************************/
+
 #define _GPS_VERSION "0.92" // software version of this library
 #define _GPS_MPH_PER_KNOT 1.15077945
 #define _GPS_MPS_PER_KNOT 0.51444444
@@ -182,6 +187,7 @@ struct TinyGPSTrackedSattelites
 
 class TinyGPSPlus;
 
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
 class TinyGPSCustom : public TinyGPSDatum<uint8_t>
 {
 public:
@@ -189,7 +195,7 @@ public:
    TinyGPSCustom(TinyGPSPlus &gps, const char *sentenceName, int termNumber);
    void begin(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber);
 
-   const char *value() { flags &= (~FLAG_UPDATED)this->value(); return buffer; }
+   const char *value() { flags &= (~FLAG_UPDATED); return buffer; }
 
 private:
    void commit();
@@ -202,6 +208,7 @@ private:
    friend class TinyGPSPlus;
    TinyGPSCustom *next;
 };
+#endif
 
 class TinyGPSPlus
 {
@@ -229,10 +236,12 @@ public:
   static int32_t parseDecimal(const char *term);
   static void parseDegrees(const char *term, RawDegrees &deg);
 
+#ifndef TINYGPS_OPTION_NO_STATISTICS
   uint32_t charsProcessed()   const { return encodedCharCount; }
   uint32_t sentencesWithFix() const { return sentencesWithFixCount; }
   uint32_t failedChecksum()   const { return failedChecksumCount; }
   uint32_t passedChecksum()   const { return passedChecksumCount; }
+#endif
 
 private:
   bool sentenceHasFix() const
@@ -259,17 +268,21 @@ private:
   uint8_t curTermOffset;
   uint8_t trackedSatellitesIndex;
 
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
   // custom element support
   friend class TinyGPSCustom;
   TinyGPSCustom *customElts;
   TinyGPSCustom *customCandidates;
   void insertCustom(TinyGPSCustom *pElt, const char *sentenceName, int index);
+#endif
 
+#ifndef TINYGPS_OPTION_NO_STATISTICS
   // statistics
   uint32_t encodedCharCount;
   uint32_t sentencesWithFixCount;
   uint32_t failedChecksumCount;
   uint32_t passedChecksumCount;
+#endif
 
   // internal utilities
   int fromHex(char a);

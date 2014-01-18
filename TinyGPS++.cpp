@@ -39,12 +39,16 @@ TinyGPSPlus::TinyGPSPlus()
   ,  curSentenceType(GPS_SENTENCE_OTHER)
   ,  curTermNumber(0)
   ,  curTermOffset(0)
+#ifndef TINYGPSPLUS_OPTION_NO_CUSTOM_FIELDS
   ,  customElts(0)
   ,  customCandidates(0)
+#endif
+#ifndef TINYGPSPLUS_OPTION_NO_STATISTICS
   ,  encodedCharCount(0)
   ,  sentencesWithFixCount(0)
   ,  failedChecksumCount(0)
   ,  passedChecksumCount(0)
+#endif
 {
   term[0] = '\0';
 }
@@ -500,6 +504,7 @@ void TinyGPSInteger::set(const char *term)
    newval = atol(term);
 }
 
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
 TinyGPSCustom::TinyGPSCustom(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber)
 {
    begin(gps, _sentenceName, _termNumber);
@@ -544,3 +549,4 @@ void TinyGPSPlus::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, in
    pElt->next = *ppelt;
    *ppelt = pElt;
 }
+#endif
