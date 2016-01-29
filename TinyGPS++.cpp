@@ -37,6 +37,7 @@ TinyGPSPlus::TinyGPSPlus()
   ,  curTermNumber(0)
   ,  curTermOffset(0)
   ,  sentenceHasFix(false)
+  ,  fixQ(0)
   ,  customElts(0)
   ,  customCandidates(0)
   ,  encodedCharCount(0)
@@ -82,6 +83,7 @@ bool TinyGPSPlus::encode(char c)
     curSentenceType = GPS_SENTENCE_OTHER;
     isChecksumTerm = false;
     sentenceHasFix = false;
+    //fixQ = 0;
     return false;
 
   default: // ordinary characters
@@ -259,6 +261,7 @@ bool TinyGPSPlus::endOfTermHandler()
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 6): // Fix data (GPGGA)
       sentenceHasFix = term[0] > '0';
+      fixQ = term[0] - '0';
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 7): // Satellites used (GPGGA)
       satellites.set(term);
