@@ -30,6 +30,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define _GPRMCterm   "GPRMC"
 #define _GNRMCterm   "GNRMC"
 #define _GPGGAterm   "GPGGA"
+#define _GPGSVterm   "GPGSV"
+#define _GNRMCterm   "GNRMC"
+#define _GNGGAterm   "GNGGA"
 
 TinyGPSPlus::TinyGPSPlus()
   :  parity(0)
@@ -210,7 +213,13 @@ bool TinyGPSPlus::endOfTermHandler()
   {
     if (!strcmp(term, _GPRMCterm) || !strcmp(term, _GNRMCterm))
       curSentenceType = GPS_SENTENCE_GPRMC;
+    else if (!strcmp(term, _GNRMCterm))
+      curSentenceType = GPS_SENTENCE_GPRMC;
     else if (!strcmp(term, _GPGGAterm))
+      curSentenceType = GPS_SENTENCE_GPGGA;
+    else if (!strcmp(term, _GPGSVterm))
+      curSentenceType = GPS_SENTENCE_GPGSV;
+    else if (!strcmp(term, _GNGGAterm))
       curSentenceType = GPS_SENTENCE_GPGGA;
     else
       curSentenceType = GPS_SENTENCE_OTHER;
@@ -223,7 +232,37 @@ bool TinyGPSPlus::endOfTermHandler()
     return false;
   }
 
-  if (curSentenceType != GPS_SENTENCE_OTHER && term[0])
+  //see GPGSV described here http://aprs.gids.nl/nmea/#gsa
+  if(curSentenceType == GPS_SENTENCE_GPGSV) {
+    switch(curTermNumber)
+    {
+      case 2:
+      {
+        uint8_t msgId = (uint8_t)atoi(term)-1;  //start from 0
+        if(msgId == 0) {
+          //reset trackedSatellites
+          memset(trackedSatellites, 0, 12);
+        }
+        trackedSatellitesIndex = 4*msgId; //4 tracked sats per line
+        break;
+      }
+      case 7:
+      case 11:
+      case 15:
+      case 19:
+      {
+        trackedSatellites[trackedSatellitesIndex + (curTermNumber-7)/4].strength = (uint8_t)atoi(term);
+        break;
+      }
+      case 4:
+      case 8:
+      case 12:
+      case 16:
+        trackedSatellites[trackedSatellitesIndex + curTermNumber/4-1].prn = (uint8_t)atoi(term);
+        break;
+    }
+  }
+  else if (curSentenceType != GPS_SENTENCE_OTHER && term[0])
     switch(COMBINE(curSentenceType, curTermNumber))
   {
     case COMBINE(GPS_SENTENCE_GPRMC, 1): // Time in both sentences
