@@ -66,7 +66,7 @@ struct TinyGPSDatum
 {
    friend class TinyGPSPlus;
 public:
-   uint32_t age() const    { return this->isValid() ? millis() - lastCommitTime : static_cast<uint32_t>(ULONG_MAX); }
+   uint32_t age() const    { return this->isValid() ? millis() - createTime : static_cast<uint32_t>(ULONG_MAX); }
    bool isValid() const    { return (flags & FLAG_VALID) != 0; }
    bool isUpdated() const  { return (flags & FLAG_UPDATED) != 0; }
    T value()               { flags &= (~FLAG_UPDATED); return val; }
@@ -78,7 +78,7 @@ protected:
    enum {FLAG_DEFAULT=0, FLAG_VALID=(1<<0), FLAG_UPDATED=(1<<1)};
    uint8_t flags;
    T val, newval;
-   uint32_t lastCommitTime;
+   uint32_t createTime;
 };
 
 struct TinyGPSLocation : public TinyGPSDatum<LatLong>
@@ -94,7 +94,7 @@ public:
    {}
 
 private:
-   void commit();
+   void commit(uint32_t timestamp);
    void setLatitude(const char *term);
    void setLongitude(const char *term);
 };
@@ -111,7 +111,7 @@ public:
    {}
 
 private:
-   void commit();
+   void commit(uint32_t timestamp);
    void setDate(const char *term);
 };
 
@@ -128,7 +128,7 @@ public:
    {}
 
 private:
-   void commit();
+   void commit(uint32_t timestamp);
    void setTime(const char *term);
 };
 
@@ -141,7 +141,7 @@ public:
    {}
 
 private:
-   void commit();
+   void commit(uint32_t timestamp);
    void set(const char *term);
 };
 
@@ -154,7 +154,7 @@ public:
    {}
 
 private:
-   void commit();
+   void commit(uint32_t timestamp);
    void set(const char *term);
 };
 
@@ -198,7 +198,7 @@ public:
    const char *value() { flags &= (~FLAG_UPDATED); return buffer; }
 
 private:
-   void commit();
+   void commit(uint32_t timestamp);
    void set(const char *term);
 
    char stagingBuffer[_GPS_MAX_FIELD_SIZE + 1];
@@ -267,6 +267,7 @@ private:
   uint8_t curTermNumber;
   uint8_t curTermOffset;
   uint8_t trackedSatellitesIndex;
+  uint32_t sentenceTime;
 
 #ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
   // custom element support
