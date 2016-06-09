@@ -85,8 +85,8 @@ struct TinyGPSLocation : public TinyGPSDatum<LatLong>
 {
    friend class TinyGPSPlus;
 public:
-   const RawDegrees &rawLat()     { return value().lat; }
-   const RawDegrees &rawLng()     { return value().lng; }
+   RawDegrees rawLat() { return value().lat; }
+   RawDegrees rawLng() { return value().lng; }
    double lat();
    double lng();
 
