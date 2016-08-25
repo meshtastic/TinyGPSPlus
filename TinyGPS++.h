@@ -243,6 +243,8 @@ public:
   uint32_t passedChecksum()   const { return passedChecksumCount; }
 #endif
 
+  uint8_t  fixQuality()        const { return fixQ; }
+
 private:
   bool sentenceHasFix() const
   {
@@ -268,6 +270,17 @@ private:
   uint8_t curTermOffset;
   uint8_t trackedSatellitesIndex;
   uint32_t sentenceTime;
+  uint8_t fixQ;  /* From Eric S. Raymond's website: http://www.catb.org/gpsd/NMEA.html#_gga_global_positioning_system_fix_data
+    				0 - fix not available,
+    				1 - GPS fix,
+    				2 - Differential GPS fix (values above 2 are 2.3 features)
+    				3 = PPS fix
+    				4 = Real Time Kinematic
+    				5 = Float RTK
+    				6 = estimated (dead reckoning)
+    				7 = Manual input mode
+    				8 = Simulation mode
+   	   	   	   	  */
 
 #ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
   // custom element support

@@ -39,6 +39,7 @@ TinyGPSPlus::TinyGPSPlus()
   ,  curSentenceType(GPS_SENTENCE_OTHER)
   ,  curTermNumber(0)
   ,  curTermOffset(0)
+  ,  fixQ(0)
 #ifndef TINYGPSPLUS_OPTION_NO_CUSTOM_FIELDS
   ,  customElts(0)
   ,  customCandidates(0)
@@ -309,6 +310,7 @@ bool TinyGPSPlus::endOfTermHandler()
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 6): // Fix data (GPGGA)
       setSentenceHasFix(term[0] > '0');
+      fixQ = term[0] - '0';
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 7): // Satellites used (GPGGA)
       satellites.set(term);
