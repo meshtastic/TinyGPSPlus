@@ -26,6 +26,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #define _GPRMCterm   "GPRMC"
 #define _GPGGAterm   "GPGGA"
@@ -108,6 +109,46 @@ bool TinyGPSPlus::encode(char c)
   }
 
   return false;
+}
+
+int TinyGPSPlus::GGA(char *buf)
+{
+   *buf = 0;
+   char* end = buf;
+   if(fixQ == 0)
+   {
+      end = stpcpy(buf, "$GPGGA,,,,,,,,,,,,,,");
+   }
+   else
+   {
+      end += sprintf(
+                end,
+                //      HH  MM  SS   CS   LAT        NS LON       EW Q  SATS HDOP ALT    GEOID
+                "$GPGGA,%02d%02d%02d.%02d,%02d%10.7f,%c,%03d%10.7f,%c,%d,%02d,%.1f,%.3f,M,%.3f,M,,",
+                time.hour(),
+                time.minute(),
+                time.second(),
+                time.centisecond(),
+                location.rawLat().deg,
+                (location.lat() - location.rawLat().deg) * 60,
+                (location.rawLng().negative ? 'S' : 'N'),
+                location.rawLng().deg,
+                (location.lng() - location.rawLng().deg) * 60,
+                (location.rawLat().negative ? 'W' : 'E'),
+                fixQuality(),
+                satellites.value(),
+                hdop.hdop(),
+                altitude.meters(),
+                geoidHeight.meters());
+   }
+
+   // Calculate checksum
+   char checksum = 0;
+   for(char* ptr = buf+1; *ptr; ptr++)
+      checksum ^= *ptr;
+
+   end += sprintf(end, "*%02X\x0D\x0A", checksum);
+   return end - buf;
 }
 
 //

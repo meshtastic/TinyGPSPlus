@@ -244,6 +244,11 @@ public:
   static int32_t parseDecimal(const char *term);
   static void parseDegrees(const char *term, RawDegrees &deg);
 
+  // Get current data as GGA string, including newline. No bounds checking is
+  // done so caller must ensure that buf is large enough to hold the string.
+  // Returns number of bytes written, excluding the 0 terminator.
+  int GGA(char* buf);
+
 #ifndef TINYGPS_OPTION_NO_STATISTICS
   uint32_t charsProcessed()   const { return encodedCharCount; }
   uint32_t sentencesWithFix() const { return sentencesWithFixCount; }
