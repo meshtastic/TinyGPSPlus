@@ -231,6 +231,7 @@ public:
   TinyGPSInteger satellites;
   TinyGPSTrackedSattelites trackedSatellites[12];
   TinyGPSHDOP hdop;
+  TinyGPSAltitude geoidHeight;
 
   static const char *libraryVersion() { return _GPS_VERSION; }
 

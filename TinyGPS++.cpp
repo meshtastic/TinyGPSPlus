@@ -199,6 +199,7 @@ bool TinyGPSPlus::endOfTermHandler()
           time.commit(sentenceTime);
           location.commit(sentenceTime);
           altitude.commit(sentenceTime);
+          geoidHeight.commit(sentenceTime);
         }
         satellites.commit(sentenceTime);
         hdop.commit(sentenceTime);
@@ -320,6 +321,9 @@ bool TinyGPSPlus::endOfTermHandler()
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 9): // Altitude (GPGGA)
       altitude.set(term);
+      break;
+    case COMBINE(GPS_SENTENCE_GPGGA, 11): // Height over Geoid
+      geoidHeight.set(term);
       break;
   }
 
