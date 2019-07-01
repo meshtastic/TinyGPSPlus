@@ -266,10 +266,10 @@ bool TinyGPSPlus::endOfTermHandler()
   {
     if (!strcmp(term, _GPRMCterm) || !strcmp(term, _GNRMCterm))
       curSentenceType = GPS_SENTENCE_GPRMC;
+    else if (!strcmp(term, _GPGGAterm) || !strcmp(term, _GNGGAterm))
+      curSentenceType = GPS_SENTENCE_GPGGA;
     else if (!strcmp(term, _GNRMCterm))
       curSentenceType = GPS_SENTENCE_GPRMC;
-    else if (!strcmp(term, _GPGGAterm))
-      curSentenceType = GPS_SENTENCE_GPGGA;
     else if (!strcmp(term, _GPGSVterm))
       curSentenceType = GPS_SENTENCE_GPGSV;
     else if (!strcmp(term, _GNGGAterm))
