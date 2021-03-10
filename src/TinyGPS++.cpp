@@ -295,12 +295,18 @@ bool TinyGPSPlus::endOfTermHandler()
     {
       case 2:
       {
-        uint8_t msgId = (uint8_t)atoi(term)-1;  //start from 0
-        if(msgId == 0) {
-          //reset trackedSatellites
-          memset(trackedSatellites, 0, 12 * sizeof(TinyGPSTrackedSattelites));
+        // MsgId *should* be 1 based, but some devices (Air530) send 0 when they are still starting up
+        int msgId = atoi(term) - 1;  
+        if(msgId < 0 || msgId >= TINYGPS_MAX_SATS / 4) {
+          trackedSatellitesIndex = -1; // Mark as an invalid message, bogus msgId
         }
-        trackedSatellitesIndex = 4*msgId; //4 tracked sats per line
+        else {
+          if(msgId == 0) {
+            //reset trackedSatellites
+            memset(trackedSatellites, 0, 12 * sizeof(TinyGPSTrackedSattelites));
+          }
+          trackedSatellitesIndex = 4* ((uint8_t) msgId); //4 tracked sats per line
+        }
         break;
       }
       case 7:
@@ -308,15 +314,25 @@ bool TinyGPSPlus::endOfTermHandler()
       case 15:
       case 19:
       {
-        trackedSatellites[trackedSatellitesIndex + (curTermNumber-7)/4].strength = (uint8_t)atoi(term);
+        if(trackedSatellitesIndex >= 0) {
+          size_t satnum = trackedSatellitesIndex + (curTermNumber-4)/4;
+          if(satnum < TINYGPS_MAX_SATS)
+            trackedSatellites[satnum].strength = (uint8_t)atoi(term);
+        }
         break;
       }
       case 4:
       case 8:
       case 12:
-      case 16:
-        trackedSatellites[trackedSatellitesIndex + curTermNumber/4-1].prn = (uint8_t)atoi(term);
+      case 16: 
+      {
+        if(trackedSatellitesIndex >= 0) {
+          size_t satnum = trackedSatellitesIndex + (curTermNumber-4)/4;
+          if(satnum < TINYGPS_MAX_SATS)
+            trackedSatellites[satnum].prn = (uint8_t)atoi(term);
+        }
         break;
+      }
     }
   }
   else if (curSentenceType != GPS_SENTENCE_OTHER && term[0])

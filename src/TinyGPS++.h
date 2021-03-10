@@ -217,6 +217,8 @@ private:
 };
 #endif
 
+#define TINYGPS_MAX_SATS 20
+
 class TinyGPSPlus
 {
 public:
@@ -231,7 +233,7 @@ public:
   TinyGPSCourse course;
   TinyGPSAltitude altitude;
   TinyGPSInteger satellites;
-  TinyGPSTrackedSattelites trackedSatellites[12];
+  TinyGPSTrackedSattelites trackedSatellites[TINYGPS_MAX_SATS];
   TinyGPSHDOP hdop;
   TinyGPSAltitude geoidHeight;
 
@@ -275,15 +277,15 @@ private:
   enum {FLAG_DEFAULT=0, FLAG_IS_CHECKSUM_TERM=(1<<0), FLAG_SENTENCE_HAS_FIX=(1<<1)};
 
   // parsing state variables
-  uint8_t parity;
-  uint8_t flags;
+  uint8_t parity = 0;
+  uint8_t flags = 0;
   char term[_GPS_MAX_FIELD_SIZE];
-  uint8_t curSentenceType;
-  uint8_t curTermNumber;
-  uint8_t curTermOffset;
-  uint8_t trackedSatellitesIndex;
-  uint32_t sentenceTime;
-  uint8_t fixQ;  /* From Eric S. Raymond's website: http://www.catb.org/gpsd/NMEA.html#_gga_global_positioning_system_fix_data
+  uint8_t curSentenceType = 0;
+  uint8_t curTermNumber = 0;
+  uint8_t curTermOffset = 0;
+  int8_t trackedSatellitesIndex = -1; // -1 means invalid
+  uint32_t sentenceTime = 0;
+  uint8_t fixQ = 0;  /* From Eric S. Raymond's website: http://www.catb.org/gpsd/NMEA.html#_gga_global_positioning_system_fix_data
     				0 - fix not available,
     				1 - GPS fix,
     				2 - Differential GPS fix (values above 2 are 2.3 features)
