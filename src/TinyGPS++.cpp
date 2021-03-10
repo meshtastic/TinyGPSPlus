@@ -41,7 +41,7 @@ TinyGPSPlus::TinyGPSPlus()
   ,  curTermNumber(0)
   ,  curTermOffset(0)
   ,  fixQ(0)
-#ifndef TINYGPSPLUS_OPTION_NO_CUSTOM_FIELDS
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
   ,  customElts(0)
   ,  customCandidates(0)
 #endif
@@ -247,7 +247,7 @@ bool TinyGPSPlus::endOfTermHandler()
         break;
       }
 
-#ifndef TINYGPSPLUS_OPTION_NO_CUSTOM_FIELDS
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
       // Commit all custom listeners of this sentence type
       for (TinyGPSCustom *p = customCandidates; p != NULL && strcmp(p->sentenceName, customCandidates->sentenceName) == 0; p = p->next)
          p->commit(sentenceTime);
@@ -279,7 +279,7 @@ bool TinyGPSPlus::endOfTermHandler()
     else
       curSentenceType = GPS_SENTENCE_OTHER;
 
-#ifndef TINYGPSPLUS_OPTION_NO_CUSTOM_FIELDS
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
     // Any custom candidates of this sentence type?
     for (customCandidates = customElts; customCandidates != NULL && strcmp(customCandidates->sentenceName, term) < 0; customCandidates = customCandidates->next);
     if (customCandidates != NULL && strcmp(customCandidates->sentenceName, term) > 0)
@@ -372,7 +372,7 @@ bool TinyGPSPlus::endOfTermHandler()
       break;
   }
 
-#ifndef TINYGPSPLUS_OPTION_NO_CUSTOM_FIELDS
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
   // Set custom values as needed
   for (TinyGPSCustom *p = customCandidates; p != NULL && strcmp(p->sentenceName, customCandidates->sentenceName) == 0 && p->termNumber <= curTermNumber; p = p->next)
     if (p->termNumber == curTermNumber)
