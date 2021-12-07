@@ -257,6 +257,11 @@ bool TinyGPSPlus::endOfTermHandler()
 
     else
     {
+      if (curSentenceType == GPS_SENTENCE_GPRMC) {
+          // Bad checksum in GPRMC sentence, reset optional variables
+          //   to prevent meshtastic-device issue #863
+          course.newval = speed.newval = 0;
+      }
       ++failedChecksumCount;
     }
 
