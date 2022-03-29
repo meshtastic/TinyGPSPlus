@@ -208,12 +208,12 @@ private:
    void commit(uint32_t timestamp);
    void set(const char *term);
 
-   char stagingBuffer[_GPS_MAX_FIELD_SIZE + 1];
-   char buffer[_GPS_MAX_FIELD_SIZE + 1];
-   const char *sentenceName;
-   int termNumber;
+   char stagingBuffer[_GPS_MAX_FIELD_SIZE + 1] = {0};
+   char buffer[_GPS_MAX_FIELD_SIZE + 1] = {0};
+   const char *sentenceName = nullptr;
+   int termNumber = 0;
    friend class TinyGPSPlus;
-   TinyGPSCustom *next;
+   TinyGPSCustom *next = nullptr;
 };
 #endif
 
@@ -281,7 +281,7 @@ private:
   // parsing state variables
   uint8_t parity = 0;
   uint8_t flags = 0;
-  char term[_GPS_MAX_FIELD_SIZE];
+  char term[_GPS_MAX_FIELD_SIZE] = {0};
   uint8_t curSentenceType = 0;
   uint8_t curTermNumber = 0;
   uint8_t curTermOffset = 0;
@@ -302,17 +302,17 @@ private:
 #ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
   // custom element support
   friend class TinyGPSCustom;
-  TinyGPSCustom *customElts;
-  TinyGPSCustom *customCandidates;
+  TinyGPSCustom *customElts = nullptr;
+  TinyGPSCustom *customCandidates = nullptr;
   void insertCustom(TinyGPSCustom *pElt, const char *sentenceName, int index);
 #endif
 
 #ifndef TINYGPS_OPTION_NO_STATISTICS
   // statistics
-  uint32_t encodedCharCount;
-  uint32_t sentencesWithFixCount;
-  uint32_t failedChecksumCount;
-  uint32_t passedChecksumCount;
+  uint32_t encodedCharCount = 0;
+  uint32_t sentencesWithFixCount = 0;
+  uint32_t failedChecksumCount = 0;
+  uint32_t passedChecksumCount = 0;
 #endif
 
   // internal utilities
