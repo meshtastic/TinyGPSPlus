@@ -36,7 +36,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 //#define TINYGPSPLUS_OPTION_NO_STATISTICS
 /**************************************************/
 
-#define _GPS_VERSION "1.0.2" // software version of this library
+#define _GPS_VERSION "1.0.3" // software version of this library
 #define _GPS_MPH_PER_KNOT 1.15077945
 #define _GPS_MPS_PER_KNOT 0.51444444
 #define _GPS_KMPH_PER_KNOT 1.852
@@ -217,7 +217,9 @@ private:
 };
 #endif
 
+#ifndef TINYGPS_MAX_SATS
 #define TINYGPS_MAX_SATS 20
+#endif
 
 class TinyGPSPlus
 {
