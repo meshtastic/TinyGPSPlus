@@ -308,7 +308,7 @@ bool TinyGPSPlus::endOfTermHandler()
         else {
           if(msgId == 0) {
             //reset trackedSatellites
-            memset(trackedSatellites, 0, 12 * sizeof(TinyGPSTrackedSattelites));
+            memset(trackedSatellites, 0, TINYGPS_MAX_SATS * sizeof(TinyGPSTrackedSattelites));
           }
           trackedSatellitesIndex = 4* ((uint8_t) msgId); //4 tracked sats per line
         }
