@@ -185,22 +185,35 @@ int32_t TinyGPSPlus::parseDecimal(const char *term)
 // Parse degrees in that funny NMEA format DDMM.MMMM
 void TinyGPSPlus::parseDegrees(const char *term, RawDegrees &deg)
 {
-  uint32_t leftOfDecimal = (uint32_t)atol(term);
+
+  deg.deg = 181; // Set to invalid value
+  if (!isdigit(*term) && *term != '.') {
+    // An invalid character
+    // TODO: Must check if the degree is allowed to start with a decimal point.
+    return;
+  }
+
+  const uint32_t leftOfDecimal = (uint32_t)atol(term);
+
+  while (isdigit(*term)) {
+    ++term;
+  }
+
+  if (*term != '.') {
+    // Degree must have a decimal point
+    return;
+  }
+
+  deg.deg = (int16_t)(leftOfDecimal / 100);
   uint16_t minutes = (uint16_t)(leftOfDecimal % 100);
   uint32_t multiplier = 10000000UL;
   uint32_t tenMillionthsOfMinutes = minutes * multiplier;
-
-  deg.deg = (int16_t)(leftOfDecimal / 100);
-
-  while (isdigit(*term))
-    ++term;
-
-  if (*term == '.')
-    while (isdigit(*++term))
-    {
-      multiplier /= 10;
-      tenMillionthsOfMinutes += (*term - '0') * multiplier;
-    }
+ 
+  while (isdigit(*++term))
+  {
+    multiplier /= 10;
+    tenMillionthsOfMinutes += (*term - '0') * multiplier;
+  }
 
   deg.billionths = (5 * tenMillionthsOfMinutes + 1) / 3;
   deg.negative = false;
@@ -225,19 +238,19 @@ bool TinyGPSPlus::endOfTermHandler()
       switch(curSentenceType)
       {
       case GPS_SENTENCE_GPRMC:
+        date.commit(sentenceTime);
+        time.commit(sentenceTime);
         if (sentenceHasFix())
         {
-           date.commit(sentenceTime);
-           time.commit(sentenceTime);
            location.commit(sentenceTime);
            speed.commit(sentenceTime);
            course.commit(sentenceTime);
         }
         break;
       case GPS_SENTENCE_GPGGA:
+        time.commit(sentenceTime);
         if (sentenceHasFix())
         {
-          time.commit(sentenceTime);
           location.commit(sentenceTime);
           altitude.commit(sentenceTime);
           geoidHeight.commit(sentenceTime);
