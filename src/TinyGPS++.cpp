@@ -28,11 +28,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <stdlib.h>
 #include <stdio.h>
 
+#define _GPGSVterm   "GPGSV"
 #define _GPRMCterm   "GPRMC"
 #define _GPGGAterm   "GPGGA"
-#define _GPGSVterm   "GPGSV"
 #define _GNRMCterm   "GNRMC"
 #define _GNGGAterm   "GNGGA"
+#define _GARMCterm   "GARMC"
+#define _GAGGAterm   "GAGGA"
 
 TinyGPSPlus::TinyGPSPlus()
   :  parity(0)
@@ -284,16 +286,12 @@ bool TinyGPSPlus::endOfTermHandler()
   // the first term determines the sentence type
   if (curTermNumber == 0)
   {
-    if (!strcmp(term, _GPRMCterm) || !strcmp(term, _GNRMCterm))
+    if (!strcmp(term, _GPRMCterm) || !strcmp(term, _GNRMCterm) || !strcmp(term, _GARMCterm))
       curSentenceType = GPS_SENTENCE_GPRMC;
-    else if (!strcmp(term, _GPGGAterm) || !strcmp(term, _GNGGAterm))
+    else if (!strcmp(term, _GPGGAterm) || !strcmp(term, _GNGGAterm) || !strcmp(term, _GAGGAterm))
       curSentenceType = GPS_SENTENCE_GPGGA;
-    else if (!strcmp(term, _GNRMCterm))
-      curSentenceType = GPS_SENTENCE_GPRMC;
     else if (!strcmp(term, _GPGSVterm))
       curSentenceType = GPS_SENTENCE_GPGSV;
-    else if (!strcmp(term, _GNGGAterm))
-      curSentenceType = GPS_SENTENCE_GPGGA;
     else
       curSentenceType = GPS_SENTENCE_OTHER;
 
@@ -303,7 +301,7 @@ bool TinyGPSPlus::endOfTermHandler()
     if (customCandidates != NULL && strcmp(customCandidates->sentenceName, term) > 0)
        customCandidates = NULL;
 #endif
-
+    // Serial.printf("%s ENC:%i PAS:%i FAI:%i FIX:%i\n", term, encodedCharCount, passedChecksumCount, failedChecksumCount, sentencesWithFixCount);
     return false;
   }
 
@@ -490,14 +488,14 @@ void TinyGPSLocation::setLongitude(const char *term)
 double TinyGPSLocation::lat()
 {
    flags &= (~FLAG_UPDATED);
-   double ret = val.lat.deg + val.lat.billionths / 1000000000.0;
+   double ret = (double)val.lat.deg + ((double)val.lat.billionths / (double)1000000000.0);
    return val.lat.negative ? -ret : ret;
 }
 
 double TinyGPSLocation::lng()
 {
    flags &= (~FLAG_UPDATED);
-   double ret = val.lng.deg + val.lng.billionths / 1000000000.0;
+   double ret = (double)val.lng.deg + ((double)val.lng.billionths / (double)1000000000.0);
    return val.lng.negative ? -ret : ret;
 }
 
