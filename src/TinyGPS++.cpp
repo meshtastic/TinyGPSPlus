@@ -35,6 +35,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define _GNGGAterm   "GNGGA"
 #define _GARMCterm   "GARMC"
 #define _GAGGAterm   "GAGGA"
+#define _GLRMCterm   "GLRMC"
+#define _GLGGAterm   "GLGGA"
 
 TinyGPSPlus::TinyGPSPlus()
   :  parity(0)
@@ -69,6 +71,7 @@ bool TinyGPSPlus::encode(char c)
   {
   case ',': // term terminators
     parity ^= (uint8_t)c;
+    [[fallthrough]];
   case '\r':
   case '\n':
   case '*':
@@ -286,9 +289,9 @@ bool TinyGPSPlus::endOfTermHandler()
   // the first term determines the sentence type
   if (curTermNumber == 0)
   {
-    if (!strcmp(term, _GPRMCterm) || !strcmp(term, _GNRMCterm) || !strcmp(term, _GARMCterm))
+    if (!strcmp(term, _GPRMCterm) || !strcmp(term, _GNRMCterm) || !strcmp(term, _GARMCterm) || !strcmp(term, _GLRMCterm))
       curSentenceType = GPS_SENTENCE_GPRMC;
-    else if (!strcmp(term, _GPGGAterm) || !strcmp(term, _GNGGAterm) || !strcmp(term, _GAGGAterm))
+    else if (!strcmp(term, _GPGGAterm) || !strcmp(term, _GNGGAterm) || !strcmp(term, _GAGGAterm) || !strcmp(term, _GLRMCterm))
       curSentenceType = GPS_SENTENCE_GPGGA;
     else if (!strcmp(term, _GPGSVterm))
       curSentenceType = GPS_SENTENCE_GPGSV;
@@ -618,7 +621,7 @@ void TinyGPSCustom::commit(uint32_t timestamp)
 
 void TinyGPSCustom::set(const char *term)
 {
-   strncpy(this->stagingBuffer, term, sizeof(this->stagingBuffer));
+   strncpy(this->stagingBuffer, term, sizeof(this->stagingBuffer) - 1);
 }
 
 void TinyGPSPlus::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, int termNumber)
