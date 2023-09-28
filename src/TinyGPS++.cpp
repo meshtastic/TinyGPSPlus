@@ -359,7 +359,9 @@ bool TinyGPSPlus::endOfTermHandler()
   {
     case COMBINE(GPS_SENTENCE_GPRMC, 1): // Time in both sentences
     case COMBINE(GPS_SENTENCE_GPGGA, 1):
-      time.setTime(term);
+      if (term[0] != 0) {
+        time.setTime(term);
+      }
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 2): // GPRMC validity
       setSentenceHasFix(term[0] == 'A');
@@ -387,7 +389,9 @@ bool TinyGPSPlus::endOfTermHandler()
       course.set(term);
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 9): // Date (GPRMC)
-      date.setDate(term);
+      if (term[0] != 0) {
+        date.setDate(term);
+      }
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 6): // Fix data (GPGGA)
       setSentenceHasFix(term[0] > '0');
@@ -504,25 +508,33 @@ double TinyGPSLocation::lng()
 
 void TinyGPSDate::commit(uint32_t timestamp)
 {
+   if (!isNotNull)
+      return;
    createTime = timestamp;
    val = newval;
    flags |= (FLAG_VALID|FLAG_UPDATED);
+   isNotNull = false;
 }
 
 void TinyGPSTime::commit(uint32_t timestamp)
 {
+  if (!isNotNull)
+    return;
    createTime = timestamp;
    val = newval;
    flags |= (FLAG_VALID|FLAG_UPDATED);
+   isNotNull = false;
 }
 
 void TinyGPSTime::setTime(const char *term)
 {
+   isNotNull = true;
    newval = (uint32_t)TinyGPSPlus::parseDecimal(term);
 }
 
 void TinyGPSDate::setDate(const char *term)
 {
+   isNotNull = true;
    newval = atol(term);
 }
 
