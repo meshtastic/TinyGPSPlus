@@ -84,6 +84,7 @@ bool TinyGPSPlus::encode(char c)
       }
       ++curTermNumber;
       curTermOffset = 0;
+      term[curTermOffset] = 0;
       if(c == '*')
       {
         flags |= FLAG_IS_CHECKSUM_TERM;
@@ -508,8 +509,10 @@ double TinyGPSLocation::lng()
 
 void TinyGPSDate::commit(uint32_t timestamp)
 {
-   if (!isNotNull)
+   if (!isNotNull) {
+      flags = FLAG_DEFAULT;
       return;
+   }
    createTime = timestamp;
    val = newval;
    flags |= (FLAG_VALID|FLAG_UPDATED);
@@ -518,8 +521,10 @@ void TinyGPSDate::commit(uint32_t timestamp)
 
 void TinyGPSTime::commit(uint32_t timestamp)
 {
-  if (!isNotNull)
-    return;
+   if (!isNotNull) {
+      flags = FLAG_DEFAULT;
+      return;
+   }
    createTime = timestamp;
    val = newval;
    flags |= (FLAG_VALID|FLAG_UPDATED);
