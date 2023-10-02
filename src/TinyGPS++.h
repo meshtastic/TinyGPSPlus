@@ -119,7 +119,7 @@ public:
 private:
    void commit(uint32_t timestamp);
    void setDate(const char *term);
-   bool isNotNull;
+   bool isNotNull = false;
 };
 
 struct TinyGPSTime : public TinyGPSDatum<uint32_t>
