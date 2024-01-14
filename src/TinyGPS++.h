@@ -43,7 +43,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define _GPS_MILES_PER_METER 0.00062137112
 #define _GPS_KM_PER_METER 0.001
 #define _GPS_FEET_PER_METER 3.2808399
-#ifndef ARDUINO_ARCH_AVR
+#if !defined(ARDUINO_ARCH_AVR) || defined(ARCH_RP2040)
 #define _GPS_MAX_FIELD_SIZE 33
 #else
 #define _GPS_MAX_FIELD_SIZE 15
