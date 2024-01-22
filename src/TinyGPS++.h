@@ -75,13 +75,20 @@ public:
    uint32_t age() const    { return this->isValid() ? millis() - createTime : static_cast<uint32_t>(ULONG_MAX); }
    bool isValid() const    { return (flags & FLAG_VALID) != 0; }
    bool isUpdated() const  { return (flags & FLAG_UPDATED) != 0; }
+   bool isNotEmpty() const  { return (flags & FLAG_NOT_EMPTY) != 0; }
+   void setNotEmpty(bool notEmpty) { 
+      if (notEmpty)
+         flags |= (FLAG_NOT_EMPTY);
+      else
+         flags &= (~FLAG_NOT_EMPTY);
+   }
    T value()               { flags &= (~FLAG_UPDATED); return val; }
 
    TinyGPSDatum() : flags(FLAG_DEFAULT), val(T())
    {}
 
 protected:
-   enum {FLAG_DEFAULT=0, FLAG_VALID=(1<<0), FLAG_UPDATED=(1<<1)};
+   enum {FLAG_DEFAULT=0, FLAG_VALID=(1<<0), FLAG_UPDATED=(1<<1), FLAG_NOT_EMPTY=(1<<2)};
    uint8_t flags;
    T val, newval;
    uint32_t createTime;
@@ -323,7 +330,7 @@ private:
 
   // internal utilities
   int fromHex(char a);
-  bool endOfTermHandler();
+  bool endOfTermHandler(bool termIsNotEmpty);
 };
 
 #endif // def(__TinyGPSPlus_h)
