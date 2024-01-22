@@ -77,10 +77,13 @@ bool TinyGPSPlus::encode(char c)
   case '*':
     {
       bool isValidSentence = false;
-      if (curTermOffset < sizeof(term))
-      {
+      if (curTermOffset == 0) {
         term[curTermOffset] = 0;
-        isValidSentence = endOfTermHandler();
+        isValidSentence = endOfTermHandler(false);
+
+      } else if (curTermOffset < sizeof(term)) {
+        term[curTermOffset] = 0;
+        isValidSentence = endOfTermHandler(true);
       }
       ++curTermNumber;
       curTermOffset = 0;
@@ -229,7 +232,7 @@ void TinyGPSPlus::parseDegrees(const char *term, RawDegrees &deg)
 
 // Processes a just-completed term
 // Returns true if new sentence has just passed checksum test and is validated
-bool TinyGPSPlus::endOfTermHandler()
+bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
 {
   // If it's the checksum term, and the checksum checks out, commit
   if ((flags & FLAG_IS_CHECKSUM_TERM) != 0)
@@ -244,25 +247,36 @@ bool TinyGPSPlus::endOfTermHandler()
       switch(curSentenceType)
       {
       case GPS_SENTENCE_GPRMC:
-        date.commit(sentenceTime);
-        time.commit(sentenceTime);
+        if (date.isNotEmpty())
+          date.commit(sentenceTime);
+        if (time.isNotEmpty())
+          time.commit(sentenceTime);
         if (sentenceHasFix())
         {
+          if (location.isNotEmpty())
            location.commit(sentenceTime);
+          if (speed.isNotEmpty())
            speed.commit(sentenceTime);
+          if (course.isNotEmpty())
            course.commit(sentenceTime);
         }
         break;
       case GPS_SENTENCE_GPGGA:
-        time.commit(sentenceTime);
+        if (time.isNotEmpty())
+          time.commit(sentenceTime);
         if (sentenceHasFix())
         {
-          location.commit(sentenceTime);
-          altitude.commit(sentenceTime);
-          geoidHeight.commit(sentenceTime);
+          if (location.isNotEmpty())
+            location.commit(sentenceTime);
+          if (altitude.isNotEmpty())
+            altitude.commit(sentenceTime);
+          if (geoidHeight.isNotEmpty())
+            geoidHeight.commit(sentenceTime);
         }
-        satellites.commit(sentenceTime);
-        hdop.commit(sentenceTime);
+        if (satellites.isNotEmpty())
+          satellites.commit(sentenceTime);
+        if (hdop.isNotEmpty())
+          hdop.commit(sentenceTime);
         break;
       }
 
@@ -355,20 +369,20 @@ bool TinyGPSPlus::endOfTermHandler()
       }
     }
   }
-  else if (curSentenceType != GPS_SENTENCE_OTHER && term[0])
+  else if (curSentenceType != GPS_SENTENCE_OTHER)
     switch(COMBINE(curSentenceType, curTermNumber))
   {
     case COMBINE(GPS_SENTENCE_GPRMC, 1): // Time in both sentences
     case COMBINE(GPS_SENTENCE_GPGGA, 1):
-      if (term[0] != 0) {
-        time.setTime(term);
-      }
+      time.setNotEmpty(termIsNotEmpty);
+      time.setTime(term);
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 2): // GPRMC validity
       setSentenceHasFix(term[0] == 'A');
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 3): // Latitude
     case COMBINE(GPS_SENTENCE_GPGGA, 2):
+      location.setNotEmpty(termIsNotEmpty);
       location.setLatitude(term);
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 4): // N/S
@@ -377,6 +391,7 @@ bool TinyGPSPlus::endOfTermHandler()
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 5): // Longitude
     case COMBINE(GPS_SENTENCE_GPGGA, 4):
+      location.setNotEmpty(termIsNotEmpty);
       location.setLongitude(term);
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 6): // E/W
@@ -384,30 +399,35 @@ bool TinyGPSPlus::endOfTermHandler()
       location.newval.lng.negative = term[0] == 'W';
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 7): // Speed (GPRMC)
+      speed.setNotEmpty(termIsNotEmpty);
       speed.set(term);
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 8): // Course (GPRMC)
+      course.setNotEmpty(termIsNotEmpty);
       course.set(term);
       break;
     case COMBINE(GPS_SENTENCE_GPRMC, 9): // Date (GPRMC)
-      if (term[0] != 0) {
-        date.setDate(term);
-      }
+      date.setNotEmpty(termIsNotEmpty);
+      date.setDate(term);
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 6): // Fix data (GPGGA)
       setSentenceHasFix(term[0] > '0');
       fixQ = term[0] - '0';
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 7): // Satellites used (GPGGA)
+      satellites.setNotEmpty(termIsNotEmpty);
       satellites.set(term);
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 8): // HDOP
+      hdop.setNotEmpty(termIsNotEmpty);
       hdop.set(term);
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 9): // Altitude (GPGGA)
+      altitude.setNotEmpty(termIsNotEmpty);
       altitude.set(term);
       break;
     case COMBINE(GPS_SENTENCE_GPGGA, 11): // Height over Geoid
+      geoidHeight.setNotEmpty(termIsNotEmpty);
       geoidHeight.set(term);
       break;
   }
