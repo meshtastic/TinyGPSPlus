@@ -623,6 +623,13 @@ void TinyGPSAltitude::set(const char *term)
    newval = TinyGPSPlus::parseDecimal(term);
 }
 
+void TinyGPSAltitude::commit(uint32_t timestamp)
+{
+   createTime = timestamp;
+   val = newval;
+   flags |= (FLAG_VALID|FLAG_UPDATED);
+}
+
 void TinyGPSInteger::commit(uint32_t timestamp)
 {
    createTime = timestamp;
