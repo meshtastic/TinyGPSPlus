@@ -186,13 +186,24 @@ struct TinyGPSCourse : public TinyGPSDecimal
    double deg()      { return value() / 100.0; }
 };
 
-struct TinyGPSAltitude : public TinyGPSDecimal
+struct TinyGPSAltitude : public TinyGPSDatum<int32_t>
 {
+   friend class TinyGPSPlus;
+public:
+
+   TinyGPSAltitude()
+   {}
+
    double meters()       { return value() / 100.0; }
    double miles()        { return _GPS_MILES_PER_METER * value() / 100.0; }
    double kilometers()   { return _GPS_KM_PER_METER * value() / 100.0; }
    double feet()         { return _GPS_FEET_PER_METER * value() / 100.0; }
+
+private:
+   void commit(uint32_t timestamp);
+   void set(const char *term);
 };
+
 
 struct TinyGPSTrackedSattelites
 {
