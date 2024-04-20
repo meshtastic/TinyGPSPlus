@@ -31,12 +31,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define _GPGSVterm   "GPGSV"
 #define _GPRMCterm   "GPRMC"
 #define _GPGGAterm   "GPGGA"
-#define _GNRMCterm   "GNRMC"
-#define _GNGGAterm   "GNGGA"
-#define _GARMCterm   "GARMC"
-#define _GAGGAterm   "GAGGA"
-#define _GLRMCterm   "GLRMC"
-#define _GLGGAterm   "GLGGA"
 
 TinyGPSPlus::TinyGPSPlus()
   :  parity(0)
@@ -302,11 +296,12 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
   }
 
   // the first term determines the sentence type
+  // xxRMC/xxGGA where xx = NMEA Talker ID (GP=GPS, GL=GLONASS, GA=Galileo, GB/BD=Beidou, GN=GNSS)
   if (curTermNumber == 0)
   {
-    if (!strcmp(term, _GPRMCterm) || !strcmp(term, _GNRMCterm) || !strcmp(term, _GARMCterm) || !strcmp(term, _GLRMCterm))
+    if (strlen(term) == 5 && !strncmp(term+2, "RMC", 3))
       curSentenceType = GPS_SENTENCE_GPRMC;
-    else if (!strcmp(term, _GPGGAterm) || !strcmp(term, _GNGGAterm) || !strcmp(term, _GAGGAterm) || !strcmp(term, _GLRMCterm))
+    else if (strlen(term) == 5 && !strncmp(term+2, "GGA", 3))
       curSentenceType = GPS_SENTENCE_GPGGA;
     else if (!strcmp(term, _GPGSVterm))
       curSentenceType = GPS_SENTENCE_GPGSV;
