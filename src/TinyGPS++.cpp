@@ -23,8 +23,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include "TinyGPS++.h"
 
-#include <string.h>
-#include <stdio.h>
+// Remove string.h and stdio.h to prevent heap allocation issues
+// #include <string.h>
+// #include <stdio.h>
 
 #define _GPGSVterm   "GPGSV"
 #define _GPRMCterm   "GPRMC"
@@ -193,13 +194,21 @@ int TinyGPSPlus::GGA(char *buf)
    
    if(fixQ == 0)
    {
-      strcpy(tempBuffer, "$GPGGA,,,,,,,,,,,,,,");
+      // Manual copy to avoid strcpy heap allocation
+      const char* src = "$GPGGA,,,,,,,,,,,,,,";
+      char* dst = tempBuffer;
+      while (*src) *dst++ = *src++;
+      *dst = '\0';
       end = tempBuffer + 19;
    }
    else
    {
       // Use manual string building to avoid sprintf heap allocations
-      strcpy(tempBuffer, "$GPGGA,");
+      // Manual copy to avoid strcpy heap allocation
+      const char* src = "$GPGGA,";
+      char* dst = tempBuffer;
+      while (*src) *dst++ = *src++;
+      *dst = '\0';
       end = tempBuffer + 7;
       
       // Time
@@ -231,8 +240,10 @@ int TinyGPSPlus::GGA(char *buf)
       *end++ = ',';
       
       // HDOP, Altitude, Geoid height - simplified for safety
-      strcpy(end, "1.0,0.0,M,0.0,M,,");
-      end += 17;
+      // Manual copy to avoid strcpy heap allocation
+      const char* src = "1.0,0.0,M,0.0,M,,";
+      while (*src) *end++ = *src++;
+      end += 0; // Adjusted since we already incremented in the loop
    }
 
    // Calculate checksum
@@ -246,9 +257,12 @@ int TinyGPSPlus::GGA(char *buf)
    *end++ = '\n';
    *end = '\0';
    
-   // Copy to user buffer
+   // Copy to user buffer - manual copy to avoid strcpy heap allocation
    int length = end - tempBuffer;
-   strcpy(buf, tempBuffer);
+   for (int i = 0; i < length; i++) {
+      buf[i] = tempBuffer[i];
+   }
+   buf[length] = '\0';
    return length;
 }
 
@@ -502,7 +516,11 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
         else {
           if(msgId == 0) {
             //reset trackedSatellites
-            memset(trackedSatellites, 0, TINYGPS_MAX_SATS * sizeof(TinyGPSTrackedSattelites));
+            // Manual clear to avoid memset heap allocation
+            for (int i = 0; i < TINYGPS_MAX_SATS; i++) {
+               trackedSatellites[i].prn = 0;
+               trackedSatellites[i].strength = 0;
+            }
           }
           trackedSatellitesIndex = 4* ((uint8_t) msgId); //4 tracked sats per line
         }
@@ -821,13 +839,21 @@ void TinyGPSCustom::begin(TinyGPSPlus &gps, const char *_sentenceName, int _term
    // Safely copy sentence name to prevent dangling pointer issues
    size_t len = safe_strlen(_sentenceName);
    if (len > 7) len = 7; // Limit to prevent buffer overflow
-   strncpy(sentenceNameBuffer, _sentenceName, len);
+   // Manual copy to avoid strncpy heap allocation
+   for (size_t i = 0; i < len; i++) {
+      sentenceNameBuffer[i] = _sentenceName[i];
+   }
    sentenceNameBuffer[len] = '\0';
    sentenceName = sentenceNameBuffer;
    
    termNumber = _termNumber;
-   memset(stagingBuffer, '\0', sizeof(stagingBuffer));
-   memset(buffer, '\0', sizeof(buffer));
+   // Manual clear to avoid memset heap allocation
+   for (int i = 0; i < sizeof(stagingBuffer); i++) {
+      stagingBuffer[i] = '\0';
+   }
+   for (int i = 0; i < sizeof(buffer); i++) {
+      buffer[i] = '\0';
+   }
 
    // Check if already inserted to prevent duplicates
    TinyGPSCustom *existing = gps.customElts;
@@ -851,7 +877,10 @@ void TinyGPSCustom::commit(uint32_t timestamp)
    if (len >= sizeof(this->buffer)) {
       len = sizeof(this->buffer) - 1;
    }
-   memcpy(this->buffer, this->stagingBuffer, len);
+   // Manual copy to avoid memcpy heap allocation
+   for (size_t i = 0; i < len; i++) {
+      this->buffer[i] = this->stagingBuffer[i];
+   }
    this->buffer[len] = '\0';
    flags |= (FLAG_VALID|FLAG_UPDATED);
 }
@@ -868,7 +897,10 @@ void TinyGPSCustom::set(const char *term)
    if (len >= sizeof(this->stagingBuffer)) {
       len = sizeof(this->stagingBuffer) - 1;
    }
-   memcpy(this->stagingBuffer, term, len);
+   // Manual copy to avoid memcpy heap allocation
+   for (size_t i = 0; i < len; i++) {
+      this->stagingBuffer[i] = term[i];
+   }
    this->stagingBuffer[len] = '\0';
 }
 
@@ -963,7 +995,11 @@ void TinyGPSPlus::reset()
    geoidHeight.flags = TinyGPSDatum<int32_t>::FLAG_DEFAULT;
    
    // Clear satellite tracking data
-   memset(trackedSatellites, 0, sizeof(trackedSatellites));
+   // Manual clear to avoid memset heap allocation  
+   for (int i = 0; i < TINYGPS_MAX_SATS; i++) {
+      trackedSatellites[i].prn = 0;
+      trackedSatellites[i].strength = 0;
+   }
    
 #ifndef TINYGPSPLUS_OPTION_NO_STATISTICS
    encodedCharCount = 0;
