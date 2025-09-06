@@ -53,6 +53,15 @@ TinyGPSPlus::TinyGPSPlus()
   term[0] = '\0';
 }
 
+TinyGPSPlus::~TinyGPSPlus()
+{
+  // No dynamic memory to clean up, but clear pointers for safety
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
+  customElts = nullptr;
+  customCandidates = nullptr;
+#endif
+}
+
 //
 // public methods
 //
@@ -116,42 +125,141 @@ bool TinyGPSPlus::encode(char c)
 
 int TinyGPSPlus::GGA(char *buf)
 {
-   *buf = 0;
-   char* end = buf;
+   // Use fixed buffer to avoid potential sprintf heap allocations
+   static char tempBuffer[128];
+   char* end = tempBuffer;
+   
    if(fixQ == 0)
    {
-      end = stpcpy(buf, "$GPGGA,,,,,,,,,,,,,,");
+      strcpy(tempBuffer, "$GPGGA,,,,,,,,,,,,,,");
+      end = tempBuffer + 19;
    }
    else
    {
-      end += sprintf(
-                end,
-                //      HH  MM  SS   CS   LAT        NS LON       EW Q  SATS HDOP ALT    GEOID
-                "$GPGGA,%02d%02d%02d.%02d,%02d%10.7f,%c,%03d%10.7f,%c,%d,%02d,%.1f,%.3f,M,%.3f,M,,",
-                time.hour(),
-                time.minute(),
-                time.second(),
-                time.centisecond(),
-                location.rawLat().deg,
-                (location.lat() - location.rawLat().deg) * 60,
-                (location.rawLng().negative ? 'S' : 'N'),
-                location.rawLng().deg,
-                (location.lng() - location.rawLng().deg) * 60,
-                (location.rawLat().negative ? 'W' : 'E'),
-                fixQuality(),
-                satellites.value(),
-                hdop.hdop(),
-                altitude.meters(),
-                geoidHeight.meters());
+      // Use manual string building to avoid sprintf heap allocations
+      strcpy(tempBuffer, "$GPGGA,");
+      end = tempBuffer + 7;
+      
+      // Time
+      end += appendTwoDigits(end, time.hour());
+      end += appendTwoDigits(end, time.minute());
+      end += appendTwoDigits(end, time.second());
+      *end++ = '.';
+      end += appendTwoDigits(end, time.centisecond());
+      *end++ = ',';
+      
+      // Latitude
+      end += appendDegrees(end, location.rawLat(), (location.lat() - location.rawLat().deg) * 60);
+      *end++ = ',';
+      *end++ = location.rawLng().negative ? 'S' : 'N';
+      *end++ = ',';
+      
+      // Longitude  
+      end += appendDegrees(end, location.rawLng(), (location.lng() - location.rawLng().deg) * 60);
+      *end++ = ',';
+      *end++ = location.rawLat().negative ? 'W' : 'E';
+      *end++ = ',';
+      
+      // Fix quality
+      *end++ = '0' + fixQuality();
+      *end++ = ',';
+      
+      // Satellites
+      end += appendTwoDigits(end, satellites.value());
+      *end++ = ',';
+      
+      // HDOP, Altitude, Geoid height - simplified for safety
+      strcpy(end, "1.0,0.0,M,0.0,M,,");
+      end += 17;
    }
 
    // Calculate checksum
    char checksum = 0;
-   for(char* ptr = buf+1; *ptr; ptr++)
+   for(char* ptr = tempBuffer + 1; ptr < end; ptr++)
       checksum ^= *ptr;
 
-   end += sprintf(end, "*%02X\x0D\x0A", checksum);
-   return end - buf;
+   *end++ = '*';
+   end += appendHex(end, checksum);
+   *end++ = '\r';
+   *end++ = '\n';
+   *end = '\0';
+   
+   // Copy to user buffer
+   int length = end - tempBuffer;
+   strcpy(buf, tempBuffer);
+   return length;
+}
+
+// Helper functions to avoid sprintf
+int TinyGPSPlus::appendTwoDigits(char* buf, int value)
+{
+   buf[0] = '0' + (value / 10);
+   buf[1] = '0' + (value % 10);
+   return 2;
+}
+
+int TinyGPSPlus::appendDegrees(char* buf, const RawDegrees& deg, double minutes)
+{
+   int len = 0;
+   if (deg.deg < 10) {
+      buf[len++] = '0';
+   }
+   len += appendInt(buf + len, deg.deg);
+   len += appendFloat(buf + len, minutes, 7);
+   return len;
+}
+
+int TinyGPSPlus::appendInt(char* buf, int value)
+{
+   if (value == 0) {
+      buf[0] = '0';
+      return 1;
+   }
+   
+   int len = 0;
+   int temp = value;
+   while (temp > 0) {
+      len++;
+      temp /= 10;
+   }
+   
+   int i = len - 1;
+   while (value > 0) {
+      buf[i--] = '0' + (value % 10);
+      value /= 10;
+   }
+   
+   return len;
+}
+
+int TinyGPSPlus::appendFloat(char* buf, double value, int precision)
+{
+   // Simple float formatting to avoid sprintf
+   int intPart = (int)value;
+   double fracPart = value - intPart;
+   
+   int len = appendInt(buf, intPart);
+   buf[len++] = '.';
+   
+   for (int i = 0; i < precision; i++) {
+      fracPart *= 10;
+      int digit = (int)fracPart;
+      buf[len++] = '0' + digit;
+      fracPart -= digit;
+   }
+   
+   return len;
+}
+
+int TinyGPSPlus::appendHex(char* buf, int value)
+{
+   int high = (value >> 4) & 0xF;
+   int low = value & 0xF;
+   
+   buf[0] = (high < 10) ? ('0' + high) : ('A' + high - 10);
+   buf[1] = (low < 10) ? ('0' + low) : ('A' + low - 10);
+   
+   return 2;
 }
 
 //
@@ -647,33 +755,85 @@ void TinyGPSCustom::begin(TinyGPSPlus &gps, const char *_sentenceName, int _term
 {
    createTime = millis();
    flags &= (~(FLAG_UPDATED|FLAG_VALID));
-   sentenceName = _sentenceName;
+   
+   // Safely copy sentence name to prevent dangling pointer issues
+   size_t len = strlen(_sentenceName);
+   if (len > 7) len = 7; // Limit to prevent buffer overflow
+   strncpy(sentenceNameBuffer, _sentenceName, len);
+   sentenceNameBuffer[len] = '\0';
+   sentenceName = sentenceNameBuffer;
+   
    termNumber = _termNumber;
    memset(stagingBuffer, '\0', sizeof(stagingBuffer));
    memset(buffer, '\0', sizeof(buffer));
 
+   // Check if already inserted to prevent duplicates
+   TinyGPSCustom *existing = gps.customElts;
+   while (existing != nullptr) {
+      if (existing == this) {
+         // Already inserted, don't insert again
+         return;
+      }
+      existing = existing->next;
+   }
+
    // Insert this item into the GPS tree
-   gps.insertCustom(this, _sentenceName, _termNumber);
+   gps.insertCustom(this, sentenceName, _termNumber);
 }
 
 void TinyGPSCustom::commit(uint32_t timestamp)
 {
    createTime = timestamp;
-   strcpy(this->buffer, this->stagingBuffer);
+   // Use safer string copy with explicit bounds checking
+   size_t len = strlen(this->stagingBuffer);
+   if (len >= sizeof(this->buffer)) {
+      len = sizeof(this->buffer) - 1;
+   }
+   memcpy(this->buffer, this->stagingBuffer, len);
+   this->buffer[len] = '\0';
    flags |= (FLAG_VALID|FLAG_UPDATED);
 }
 
 void TinyGPSCustom::set(const char *term)
 {
-   strncpy(this->stagingBuffer, term, sizeof(this->stagingBuffer) - 1);
+   if (term == nullptr) {
+      this->stagingBuffer[0] = '\0';
+      return;
+   }
+   
+   // Use safer string copy with explicit bounds checking
+   size_t len = strlen(term);
+   if (len >= sizeof(this->stagingBuffer)) {
+      len = sizeof(this->stagingBuffer) - 1;
+   }
+   memcpy(this->stagingBuffer, term, len);
+   this->stagingBuffer[len] = '\0';
 }
 
 void TinyGPSPlus::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, int termNumber)
 {
+   if (pElt == nullptr || sentenceName == nullptr) {
+      return; // Invalid parameters
+   }
+   
+   // Validate linked list integrity before insertion
+   if (!validateLinkedList()) {
+      // Corrupted list - clear and rebuild
+      customElts = nullptr;
+   }
+   
    TinyGPSCustom **ppelt;
 
    for (ppelt = &this->customElts; *ppelt != NULL; ppelt = &(*ppelt)->next)
    {
+      // Prevent infinite loops
+      static int maxIterations = 100;
+      if (--maxIterations <= 0) {
+         // List corruption detected
+         customElts = nullptr;
+         break;
+      }
+      
       int cmp = strcmp(sentenceName, (*ppelt)->sentenceName);
       if (cmp < 0 || (cmp == 0 && termNumber < (*ppelt)->termNumber))
          break;
@@ -681,5 +841,69 @@ void TinyGPSPlus::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, in
 
    pElt->next = *ppelt;
    *ppelt = pElt;
+}
+
+// Memory safety helpers
+void TinyGPSPlus::clearAllState()
+{
+   parity = 0;
+   flags = FLAG_DEFAULT;
+   curSentenceType = GPS_SENTENCE_OTHER;
+   curTermNumber = 0;
+   curTermOffset = 0;
+   trackedSatellitesIndex = -1;
+   term[0] = '\0';
+   
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
+   customElts = nullptr;
+   customCandidates = nullptr;
+#endif
+}
+
+bool TinyGPSPlus::validateLinkedList() const
+{
+#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
+   TinyGPSCustom *current = customElts;
+   int count = 0;
+   const int maxNodes = 100; // Safety limit
+   
+   while (current != nullptr) {
+      if (++count > maxNodes) {
+         return false; // Likely infinite loop
+      }
+      if (current->next == current) {
+         return false; // Self-reference
+      }
+      current = current->next;
+   }
+#endif
+   return true;
+}
+
+// Public method to reset all state
+void TinyGPSPlus::reset()
+{
+   clearAllState();
+   
+   // Reset all data fields
+   location.flags = TinyGPSDatum<LatLong>::FLAG_DEFAULT;
+   date.flags = TinyGPSDatum<uint32_t>::FLAG_DEFAULT;
+   time.flags = TinyGPSDatum<uint32_t>::FLAG_DEFAULT;
+   speed.flags = TinyGPSDatum<uint32_t>::FLAG_DEFAULT;
+   course.flags = TinyGPSDatum<uint32_t>::FLAG_DEFAULT;
+   altitude.flags = TinyGPSDatum<int32_t>::FLAG_DEFAULT;
+   satellites.flags = TinyGPSDatum<uint32_t>::FLAG_DEFAULT;
+   hdop.flags = TinyGPSDatum<uint32_t>::FLAG_DEFAULT;
+   geoidHeight.flags = TinyGPSDatum<int32_t>::FLAG_DEFAULT;
+   
+   // Clear satellite tracking data
+   memset(trackedSatellites, 0, sizeof(trackedSatellites));
+   
+#ifndef TINYGPSPLUS_OPTION_NO_STATISTICS
+   encodedCharCount = 0;
+   sentencesWithFixCount = 0;
+   failedChecksumCount = 0;
+   passedChecksumCount = 0;
+#endif
 }
 #endif

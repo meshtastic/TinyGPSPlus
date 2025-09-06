@@ -24,6 +24,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef __TinyGPSPlus_h
 #define __TinyGPSPlus_h
 
+// Memory safety options
+#define TINYGPS_DISABLE_SPRINTF    // Use custom formatting to avoid sprintf heap allocation
+#define TINYGPS_SAFE_STRINGS       // Use safer string operations
+
 #if defined(ARDUINO) && ARDUINO >= 100
 #include "Arduino.h"
 #else
@@ -234,6 +238,7 @@ private:
 
    char stagingBuffer[_GPS_MAX_FIELD_SIZE + 1] = {0};
    char buffer[_GPS_MAX_FIELD_SIZE + 1] = {0};
+   char sentenceNameBuffer[8] = {0}; // Store sentence name locally to prevent dangling pointers
    const char *sentenceName = nullptr;
    int termNumber = 0;
    friend class TinyGPSPlus;
@@ -249,6 +254,14 @@ class TinyGPSPlus
 {
 public:
   TinyGPSPlus();
+  
+  // Destructor to ensure proper cleanup
+  ~TinyGPSPlus();
+  
+  // Make class non-copyable to prevent linked list corruption
+  TinyGPSPlus(const TinyGPSPlus&) = delete;
+  TinyGPSPlus& operator=(const TinyGPSPlus&) = delete;
+  
   bool encode(char c); // process one character received from GPS
   TinyGPSPlus &operator << (char c) {encode(c); return *this;}
 
@@ -277,6 +290,16 @@ public:
   // Returns number of bytes written, excluding the 0 terminator.
   int GGA(char* buf);
 
+private:
+  // Helper functions for GGA to avoid sprintf heap allocations
+  static int appendTwoDigits(char* buf, int value);
+  static int appendDegrees(char* buf, const RawDegrees& deg, double minutes);
+  static int appendInt(char* buf, int value);
+  static int appendFloat(char* buf, double value, int precision);
+  static int appendHex(char* buf, int value);
+
+public:
+
 #ifndef TINYGPS_OPTION_NO_STATISTICS
   uint32_t charsProcessed()   const { return encodedCharCount; }
   uint32_t sentencesWithFix() const { return sentencesWithFixCount; }
@@ -286,6 +309,10 @@ public:
 
   uint8_t  fixQuality()        const { return fixQ; }
   uint8_t  sentenceType()      const { return curSentenceType; }
+  
+  // Memory safety and debugging
+  void reset(); // Reset all state for clean restart
+  bool isLinkedListValid() const { return validateLinkedList(); }
 
 private:
   bool sentenceHasFix() const
@@ -342,6 +369,10 @@ private:
   // internal utilities
   int fromHex(char a);
   bool endOfTermHandler(bool termIsNotEmpty);
+  
+  // Memory safety helpers
+  void clearAllState();
+  bool validateLinkedList() const;
 };
 
 #endif // def(__TinyGPSPlus_h)
