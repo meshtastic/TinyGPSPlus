@@ -24,13 +24,75 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "TinyGPS++.h"
 
 #include <string.h>
-#include <ctype.h>
-#include <stdlib.h>
 #include <stdio.h>
 
 #define _GPGSVterm   "GPGSV"
 #define _GPRMCterm   "GPRMC"
 #define _GPGGAterm   "GPGGA"
+
+// Safe string length calculation without heap allocation
+static int safe_strlen(const char* str) 
+{
+  if (!str) return 0;
+  int len = 0;
+  while (str[len] && len < 32) len++; // Limit to prevent runaway
+  return len;
+}
+
+// Safe string comparison without heap allocation
+static int safe_strcmp(const char* s1, const char* s2) 
+{
+  if (!s1 || !s2) return (s1 == s2) ? 0 : (s1 ? 1 : -1);
+  while (*s1 && *s2 && *s1 == *s2) {
+    s1++;
+    s2++;
+  }
+  return *s1 - *s2;
+}
+
+// Safe string comparison (first n chars) without heap allocation
+static int safe_strncmp(const char* s1, const char* s2, int n) 
+{
+  if (!s1 || !s2 || n <= 0) return 0;
+  while (n-- > 0 && *s1 && *s2 && *s1 == *s2) {
+    s1++;
+    s2++;
+  }
+  return (n < 0) ? 0 : (*s1 - *s2);
+}
+
+// Safe integer parsing without heap allocation
+static long safe_atol(const char* str) 
+{
+  if (!str) return 0;
+  long result = 0;
+  int sign = 1;
+  
+  // Skip whitespace
+  while (*str == ' ' || *str == '\t') str++;
+  
+  // Check sign
+  if (*str == '-') {
+    sign = -1;
+    str++;
+  } else if (*str == '+') {
+    str++;
+  }
+  
+  // Parse digits
+  while (*str >= '0' && *str <= '9') {
+    result = result * 10 + (*str - '0');
+    str++;
+  }
+  
+  return result * sign;
+}
+
+// Safe integer parsing without heap allocation
+static int safe_atoi(const char* str) 
+{
+  return (int)safe_atol(str);
+}
 
 TinyGPSPlus::TinyGPSPlus()
   :  parity(0)
@@ -125,8 +187,8 @@ bool TinyGPSPlus::encode(char c)
 
 int TinyGPSPlus::GGA(char *buf)
 {
-   // Use fixed buffer to avoid potential sprintf heap allocations
-   static char tempBuffer[128];
+   // Use stack buffer to avoid any static allocation issues
+   char tempBuffer[128];
    char* end = tempBuffer;
    
    if(fixQ == 0)
@@ -281,12 +343,12 @@ int32_t TinyGPSPlus::parseDecimal(const char *term)
 {
   bool negative = *term == '-';
   if (negative) ++term;
-  int32_t ret = 100 * (int32_t)atol(term);
-  while (isdigit(*term)) ++term;
-  if (*term == '.' && isdigit(term[1]))
+  int32_t ret = 100 * (int32_t)safe_atol(term);
+  while (*term >= '0' && *term <= '9') ++term;
+  if (*term == '.' && *(term+1) >= '0' && *(term+1) <= '9')
   {
     ret += 10 * (term[1] - '0');
-    if (isdigit(term[2]))
+    if (*(term+2) >= '0' && *(term+2) <= '9')
       ret += term[2] - '0';
   }
   return negative ? -ret : ret;
@@ -298,15 +360,15 @@ void TinyGPSPlus::parseDegrees(const char *term, RawDegrees &deg)
 {
 
   deg.deg = 181; // Set to invalid value
-  if (!isdigit(*term) && *term != '.') {
+  if ((*term < '0' || *term > '9') && *term != '.') {
     // An invalid character
     // TODO: Must check if the degree is allowed to start with a decimal point.
     return;
   }
 
-  const uint32_t leftOfDecimal = (uint32_t)atol(term);
+  const uint32_t leftOfDecimal = (uint32_t)safe_atol(term);
 
-  while (isdigit(*term)) {
+  while (*term >= '0' && *term <= '9') {
     ++term;
   }
 
@@ -320,7 +382,7 @@ void TinyGPSPlus::parseDegrees(const char *term, RawDegrees &deg)
   uint32_t multiplier = 10000000UL;
   uint32_t tenMillionthsOfMinutes = minutes * multiplier;
  
-  while (isdigit(*++term))
+  while (*(++term) >= '0' && *term <= '9')
   {
     multiplier /= 10;
     tenMillionthsOfMinutes += (*term - '0') * multiplier;
@@ -384,7 +446,7 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
 
 #ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
       // Commit all custom listeners of this sentence type
-      for (TinyGPSCustom *p = customCandidates; p != NULL && strcmp(p->sentenceName, customCandidates->sentenceName) == 0; p = p->next)
+      for (TinyGPSCustom *p = customCandidates; p != NULL && safe_strcmp(p->sentenceName, customCandidates->sentenceName) == 0; p = p->next)
          p->commit(sentenceTime);
 #endif
       return true;
@@ -407,19 +469,19 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
   // xxRMC/xxGGA where xx = NMEA Talker ID (GP=GPS, GL=GLONASS, GA=Galileo, GB/BD=Beidou, GN=GNSS)
   if (curTermNumber == 0)
   {
-    if (strlen(term) == 5 && !strncmp(term+2, "RMC", 3))
+    if (safe_strlen(term) == 5 && safe_strncmp(term+2, "RMC", 3) == 0)
       curSentenceType = GPS_SENTENCE_GPRMC;
-    else if (strlen(term) == 5 && !strncmp(term+2, "GGA", 3))
+    else if (safe_strlen(term) == 5 && safe_strncmp(term+2, "GGA", 3) == 0)
       curSentenceType = GPS_SENTENCE_GPGGA;
-    else if (!strcmp(term, _GPGSVterm))
+    else if (safe_strcmp(term, _GPGSVterm) == 0)
       curSentenceType = GPS_SENTENCE_GPGSV;
     else
       curSentenceType = GPS_SENTENCE_OTHER;
 
 #ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
     // Any custom candidates of this sentence type?
-    for (customCandidates = customElts; customCandidates != NULL && strcmp(customCandidates->sentenceName, term) < 0; customCandidates = customCandidates->next);
-    if (customCandidates != NULL && strcmp(customCandidates->sentenceName, term) > 0)
+    for (customCandidates = customElts; customCandidates != NULL && safe_strcmp(customCandidates->sentenceName, term) < 0; customCandidates = customCandidates->next);
+    if (customCandidates != NULL && safe_strcmp(customCandidates->sentenceName, term) > 0)
        customCandidates = NULL;
 #endif
     // Serial.printf("%s ENC:%i PAS:%i FAI:%i FIX:%i\n", term, encodedCharCount, passedChecksumCount, failedChecksumCount, sentencesWithFixCount);
@@ -433,7 +495,7 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
       case 2:
       {
         // MsgId *should* be 1 based, but some devices (Air530) send 0 when they are still starting up
-        int msgId = atoi(term) - 1;  
+        int msgId = safe_atoi(term) - 1;  
         if(msgId < 0 || msgId >= TINYGPS_MAX_SATS / 4) {
           trackedSatellitesIndex = -1; // Mark as an invalid message, bogus msgId
         }
@@ -454,7 +516,7 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
         if(trackedSatellitesIndex >= 0) {
           size_t satnum = trackedSatellitesIndex + (curTermNumber-4)/4;
           if(satnum < TINYGPS_MAX_SATS)
-            trackedSatellites[satnum].strength = (uint8_t)atoi(term);
+            trackedSatellites[satnum].strength = (uint8_t)safe_atoi(term);
         }
         break;
       }
@@ -466,7 +528,7 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
         if(trackedSatellitesIndex >= 0) {
           size_t satnum = trackedSatellitesIndex + (curTermNumber-4)/4;
           if(satnum < TINYGPS_MAX_SATS)
-            trackedSatellites[satnum].prn = (uint8_t)atoi(term);
+            trackedSatellites[satnum].prn = (uint8_t)safe_atoi(term);
         }
         break;
       }
@@ -537,7 +599,7 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
 
 #ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
   // Set custom values as needed
-  for (TinyGPSCustom *p = customCandidates; p != NULL && strcmp(p->sentenceName, customCandidates->sentenceName) == 0 && p->termNumber <= curTermNumber; p = p->next)
+  for (TinyGPSCustom *p = customCandidates; p != NULL && safe_strcmp(p->sentenceName, customCandidates->sentenceName) == 0 && p->termNumber <= curTermNumber; p = p->next)
     if (p->termNumber == curTermNumber)
          p->set(term);
 #endif
@@ -663,7 +725,7 @@ void TinyGPSTime::setTime(const char *term)
 void TinyGPSDate::setDate(const char *term)
 {
    isNotNull = true;
-   newval = atol(term);
+   newval = safe_atol(term);
 }
 
 uint16_t TinyGPSDate::year()
@@ -742,7 +804,7 @@ void TinyGPSInteger::commit(uint32_t timestamp)
 
 void TinyGPSInteger::set(const char *term)
 {
-   newval = atol(term);
+   newval = safe_atol(term);
 }
 
 #ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
@@ -757,7 +819,7 @@ void TinyGPSCustom::begin(TinyGPSPlus &gps, const char *_sentenceName, int _term
    flags &= (~(FLAG_UPDATED|FLAG_VALID));
    
    // Safely copy sentence name to prevent dangling pointer issues
-   size_t len = strlen(_sentenceName);
+   size_t len = safe_strlen(_sentenceName);
    if (len > 7) len = 7; // Limit to prevent buffer overflow
    strncpy(sentenceNameBuffer, _sentenceName, len);
    sentenceNameBuffer[len] = '\0';
@@ -785,7 +847,7 @@ void TinyGPSCustom::commit(uint32_t timestamp)
 {
    createTime = timestamp;
    // Use safer string copy with explicit bounds checking
-   size_t len = strlen(this->stagingBuffer);
+   size_t len = safe_strlen(this->stagingBuffer);
    if (len >= sizeof(this->buffer)) {
       len = sizeof(this->buffer) - 1;
    }
@@ -802,7 +864,7 @@ void TinyGPSCustom::set(const char *term)
    }
    
    // Use safer string copy with explicit bounds checking
-   size_t len = strlen(term);
+   size_t len = safe_strlen(term);
    if (len >= sizeof(this->stagingBuffer)) {
       len = sizeof(this->stagingBuffer) - 1;
    }
@@ -826,15 +888,19 @@ void TinyGPSPlus::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, in
 
    for (ppelt = &this->customElts; *ppelt != NULL; ppelt = &(*ppelt)->next)
    {
-      // Prevent infinite loops
       static int maxIterations = 100;
-      if (--maxIterations <= 0) {
+      static int iterationCount = 0;
+      iterationCount++;
+      
+      // Prevent infinite loops and reset counter periodically
+      if (iterationCount > maxIterations) {
          // List corruption detected
          customElts = nullptr;
+         iterationCount = 0;
          break;
       }
       
-      int cmp = strcmp(sentenceName, (*ppelt)->sentenceName);
+      int cmp = safe_strcmp(sentenceName, (*ppelt)->sentenceName);
       if (cmp < 0 || (cmp == 0 && termNumber < (*ppelt)->termNumber))
          break;
    }
