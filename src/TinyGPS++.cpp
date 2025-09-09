@@ -699,34 +699,14 @@ void TinyGPSLocation::setLongitude(const char *term)
 double TinyGPSLocation::lat()
 {
    flags &= (~FLAG_UPDATED);
-   // Avoid potential heap allocation from floating point operations
-   // Use integer arithmetic where possible
-   int32_t whole = val.lat.deg;
-   int32_t fractional = val.lat.billionths;
-   
-   // Manual floating point conversion to avoid library calls
-   double ret = (double)whole;
-   if (fractional != 0) {
-      // Use direct division to avoid potential heap allocation
-      ret += (double)fractional * 0.000000001; // 1/1000000000
-   }
+   double ret = (double)val.lat.deg + ((double)val.lat.billionths / (double)1000000000.0);
    return val.lat.negative ? -ret : ret;
 }
 
 double TinyGPSLocation::lng()
 {
    flags &= (~FLAG_UPDATED);
-   // Avoid potential heap allocation from floating point operations
-   // Use integer arithmetic where possible
-   int32_t whole = val.lng.deg;
-   int32_t fractional = val.lng.billionths;
-   
-   // Manual floating point conversion to avoid library calls
-   double ret = (double)whole;
-   if (fractional != 0) {
-      // Use direct division to avoid potential heap allocation
-      ret += (double)fractional * 0.000000001; // 1/1000000000
-   }
+   double ret = (double)val.lng.deg + ((double)val.lng.billionths / (double)1000000000.0);
    return val.lng.negative ? -ret : ret;
 }
 

@@ -179,15 +179,15 @@ private:
 
 struct TinyGPSSpeed : public TinyGPSDecimal
 {
-   double knots()    { return (double)value() * 0.01; } // Avoid /100.0 heap allocation
-   double mph()      { return _GPS_MPH_PER_KNOT * (double)value() * 0.01; }
-   double mps()      { return _GPS_MPS_PER_KNOT * (double)value() * 0.01; }
-   double kmph()     { return _GPS_KMPH_PER_KNOT * (double)value() * 0.01; }
+   double knots()    { return value() / 100.0; }
+   double mph()      { return _GPS_MPH_PER_KNOT * value() / 100.0; }
+   double mps()      { return _GPS_MPS_PER_KNOT * value() / 100.0; }
+   double kmph()     { return _GPS_KMPH_PER_KNOT * value() / 100.0; }
 };
 
 struct TinyGPSCourse : public TinyGPSDecimal
 {
-   double deg()      { return (double)value() * 0.01; } // Avoid /100.0 heap allocation
+   double deg()      { return value() / 100.0; }
 };
 
 struct TinyGPSAltitude : public TinyGPSDatum<int32_t>
@@ -198,10 +198,10 @@ public:
    TinyGPSAltitude()
    {}
 
-   double meters()       { return (double)value() * 0.01; } // Avoid /100.0 heap allocation
-   double miles()        { return _GPS_MILES_PER_METER * (double)value() * 0.01; }
-   double kilometers()   { return _GPS_KM_PER_METER * (double)value() * 0.01; }
-   double feet()         { return _GPS_FEET_PER_METER * (double)value() * 0.01; }
+   double meters()       { return value() / 100.0; }
+   double miles()        { return _GPS_MILES_PER_METER * value() / 100.0; }
+   double kilometers()   { return _GPS_KM_PER_METER * value() / 100.0; }
+   double feet()         { return _GPS_FEET_PER_METER * value() / 100.0; }
 
 private:
    void commit(uint32_t timestamp);
@@ -217,7 +217,7 @@ struct TinyGPSTrackedSattelites
 
 struct TinyGPSHDOP : TinyGPSDecimal
 {
-   double hdop() { return (double)value() * 0.01; } // Avoid /100.0 heap allocation
+   double hdop() { return value() / 100.0; }
 };
 
 class TinyGPSPlus;
