@@ -39,11 +39,7 @@ TinyGPSPlus::TinyGPSPlus()
   ,  curTermNumber(0)
   ,  curTermOffset(0)
   ,  fixQ(0)
-#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
-  ,  customElts(0)
-  ,  customCandidates(0)
-#endif
-#ifndef TINYGPSPLUS_OPTION_NO_STATISTICS
+#ifndef TINYGPS_OPTION_NO_STATISTICS
   ,  encodedCharCount(0)
   ,  sentencesWithFixCount(0)
   ,  failedChecksumCount(0)
@@ -272,13 +268,24 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
         if (hdop.isNotEmpty())
           hdop.commit(sentenceTime);
         break;
+      // GSA carries the 2D/3D fix type and the position and vertical dilutions, none of which appear in
+      // GGA or RMC. It is committed whether or not the sentence has a fix: a receiver that cannot fix
+      // still reports fixType 1, and that is exactly the state worth knowing about.
+      case GPS_SENTENCE_GPGSA:
+        if (fixType.isNotEmpty())
+          fixType.commit(sentenceTime);
+        if (pdop.isNotEmpty())
+          pdop.commit(sentenceTime);
+        if (vdop.isNotEmpty())
+          vdop.commit(sentenceTime);
+        break;
+      case GPS_SENTENCE_GPGSV:
+        // Satellites in view is the one count that is meaningful with no fix, so it is not gated on one.
+        if (satellitesInView.isNotEmpty())
+          satellitesInView.commit(sentenceTime);
+        break;
       }
 
-#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
-      // Commit all custom listeners of this sentence type
-      for (TinyGPSCustom *p = customCandidates; p != NULL && strcmp(p->sentenceName, customCandidates->sentenceName) == 0; p = p->next)
-         p->commit(sentenceTime);
-#endif
       return true;
     }
 
@@ -305,15 +312,11 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
       curSentenceType = GPS_SENTENCE_GPGGA;
     else if (!strcmp(term, _GPGSVterm))
       curSentenceType = GPS_SENTENCE_GPGSV;
+    else if (strlen(term) == 5 && !strncmp(term+2, "GSA", 3))
+      curSentenceType = GPS_SENTENCE_GPGSA;
     else
       curSentenceType = GPS_SENTENCE_OTHER;
 
-#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
-    // Any custom candidates of this sentence type?
-    for (customCandidates = customElts; customCandidates != NULL && strcmp(customCandidates->sentenceName, term) < 0; customCandidates = customCandidates->next);
-    if (customCandidates != NULL && strcmp(customCandidates->sentenceName, term) > 0)
-       customCandidates = NULL;
-#endif
     // Serial.printf("%s ENC:%i PAS:%i FAI:%i FIX:%i\n", term, encodedCharCount, passedChecksumCount, failedChecksumCount, sentencesWithFixCount);
     return false;
   }
@@ -338,6 +341,11 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
         }
         break;
       }
+      case 3:
+        // Total satellites in view, repeated in every message of the group.
+        satellitesInView.setNotEmpty(termIsNotEmpty);
+        satellitesInView.set(term);
+        break;
       case 7:
       case 11:
       case 15:
@@ -347,6 +355,30 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
           size_t satnum = trackedSatellitesIndex + (curTermNumber-4)/4;
           if(satnum < TINYGPS_MAX_SATS)
             trackedSatellites[satnum].strength = (uint8_t)atoi(term);
+        }
+        break;
+      }
+      case 5:
+      case 9:
+      case 13:
+      case 17:
+      {
+        if(trackedSatellitesIndex >= 0) {
+          size_t satnum = trackedSatellitesIndex + (curTermNumber-5)/4;
+          if(satnum < TINYGPS_MAX_SATS)
+            trackedSatellites[satnum].elevation = (uint8_t)atoi(term);
+        }
+        break;
+      }
+      case 6:
+      case 10:
+      case 14:
+      case 18:
+      {
+        if(trackedSatellitesIndex >= 0) {
+          size_t satnum = trackedSatellitesIndex + (curTermNumber-6)/4;
+          if(satnum < TINYGPS_MAX_SATS)
+            trackedSatellites[satnum].azimuth = (uint16_t)atoi(term);
         }
         break;
       }
@@ -425,14 +457,21 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
       geoidHeight.setNotEmpty(termIsNotEmpty);
       geoidHeight.set(term);
       break;
+    case COMBINE(GPS_SENTENCE_GPGSA, 2): // Fix type (GSA): 1 none, 2 = 2D, 3 = 3D
+      fixType.setNotEmpty(termIsNotEmpty);
+      fixType.set(term);
+      break;
+    case COMBINE(GPS_SENTENCE_GPGSA, 15): // PDOP (GSA)
+      pdop.setNotEmpty(termIsNotEmpty);
+      pdop.set(term);
+      break;
+    // Term 16 is GSA's HDOP, deliberately not read: hdop stays sourced from GGA so there is one writer.
+    case COMBINE(GPS_SENTENCE_GPGSA, 17): // VDOP (GSA)
+      vdop.setNotEmpty(termIsNotEmpty);
+      vdop.set(term);
+      break;
   }
 
-#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
-  // Set custom values as needed
-  for (TinyGPSCustom *p = customCandidates; p != NULL && strcmp(p->sentenceName, customCandidates->sentenceName) == 0 && p->termNumber <= curTermNumber; p = p->next)
-    if (p->termNumber == curTermNumber)
-         p->set(term);
-#endif
 
   return false;
 }
@@ -637,49 +676,3 @@ void TinyGPSInteger::set(const char *term)
    newval = atol(term);
 }
 
-#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
-TinyGPSCustom::TinyGPSCustom(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber)
-{
-   begin(gps, _sentenceName, _termNumber);
-}
-
-void TinyGPSCustom::begin(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber)
-{
-   createTime = millis();
-   flags &= (~(FLAG_UPDATED|FLAG_VALID));
-   sentenceName = _sentenceName;
-   termNumber = _termNumber;
-   memset(stagingBuffer, '\0', sizeof(stagingBuffer));
-   memset(buffer, '\0', sizeof(buffer));
-
-   // Insert this item into the GPS tree
-   gps.insertCustom(this, _sentenceName, _termNumber);
-}
-
-void TinyGPSCustom::commit(uint32_t timestamp)
-{
-   createTime = timestamp;
-   strcpy(this->buffer, this->stagingBuffer);
-   flags |= (FLAG_VALID|FLAG_UPDATED);
-}
-
-void TinyGPSCustom::set(const char *term)
-{
-   strncpy(this->stagingBuffer, term, sizeof(this->stagingBuffer) - 1);
-}
-
-void TinyGPSPlus::insertCustom(TinyGPSCustom *pElt, const char *sentenceName, int termNumber)
-{
-   TinyGPSCustom **ppelt;
-
-   for (ppelt = &this->customElts; *ppelt != NULL; ppelt = &(*ppelt)->next)
-   {
-      int cmp = strcmp(sentenceName, (*ppelt)->sentenceName);
-      if (cmp < 0 || (cmp == 0 && termNumber < (*ppelt)->termNumber))
-         break;
-   }
-
-   pElt->next = *ppelt;
-   *ppelt = pElt;
-}
-#endif

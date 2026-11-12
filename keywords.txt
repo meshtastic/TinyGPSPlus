@@ -15,7 +15,6 @@ TinyGPSCourse	KEYWORD1
 TinyGPSAltitude	KEYWORD1
 TinyGPSInteger	KEYWORD1
 TinyGPSDecimal	KEYWORD1
-TinyGPSCustom	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
@@ -69,3 +68,11 @@ feet	KEYWORD2
 # Constants (LITERAL1)
 #######################################
 
+TinyGPSDOP	KEYWORD1
+satellitesInView	KEYWORD2
+pdop	KEYWORD2
+vdop	KEYWORD2
+fixType	KEYWORD2
+elevation	KEYWORD2
+azimuth	KEYWORD2
+dop	KEYWORD2
