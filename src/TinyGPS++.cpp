@@ -55,7 +55,9 @@ TinyGPSPlus::TinyGPSPlus()
 
 bool TinyGPSPlus::encode(char c)
 {
+#ifndef TINYGPS_OPTION_NO_STATISTICS
   ++encodedCharCount;
+#endif
 
   switch(c)
   {
@@ -230,9 +232,11 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
     byte checksum = 16 * fromHex(term[0]) + fromHex(term[1]);
     if (checksum == parity)
     {
+#ifndef TINYGPS_OPTION_NO_STATISTICS
       passedChecksumCount++;
       if (sentenceHasFix())
         ++sentencesWithFixCount;
+#endif
 
       switch(curSentenceType)
       {
@@ -296,7 +300,9 @@ bool TinyGPSPlus::endOfTermHandler(bool termIsNotEmpty)
           //   to prevent meshtastic-device issue #863
           course.newval = speed.newval = 0;
       }
+#ifndef TINYGPS_OPTION_NO_STATISTICS
       ++failedChecksumCount;
+#endif
     }
 
     return false;

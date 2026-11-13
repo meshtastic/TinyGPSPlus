@@ -1,8 +1,8 @@
 #include <TinyGPSPlus.h>
 #include <SoftwareSerial.h>
 /*
-   This sample code tracks satellite elevations, printing one line per GSV
-   group with each tracked satellite's PRN and elevation.
+   This sample code tracks satellite elevations, printing each tracked
+   satellite's PRN and elevation once per received GSV message.
 
    Elevation is parsed first-class from the $xxGSV sentences into
    gps.trackedSatellites[], so no per-field objects are needed. An earlier
@@ -38,8 +38,13 @@ void loop()
   {
     gps.encode(ss.read());
 
+    // Reading value() is what clears the updated flag; testing isUpdated() alone would leave it
+    // set and reprint the list on every character.
     if (gps.satellitesInView.isUpdated())
     {
+      Serial.print(F("In view: "));
+      Serial.println(gps.satellitesInView.value());
+
       for (int i = 0; i < TINYGPS_MAX_SATS; ++i)
         if (gps.trackedSatellites[i].prn != 0)
         {

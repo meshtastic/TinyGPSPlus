@@ -10,9 +10,10 @@
    objects to reach the same data; that class no longer exists.
 
    Note that GSV is sent per constellation, each with its own talker ID
-   (GPGSV, GLGSV, GAGSV, GBGSV), and this library matches on the last three
-   characters -- so a multi-GNSS receiver fills the array from every
-   constellation it tracks.
+   (GPGSV, GLGSV, GAGSV, GBGSV), and this library matches GSV on the exact id
+   GPGSV -- unlike RMC, GGA and GSA, which match any talker. So the array holds
+   the GPS constellation only. Message 1 of a group clears it, so storing a
+   second constellation would need its own array rather than a wider match.
 
    It requires the use of SoftwareSerial, and assumes that you have a
    4800-baud serial GPS device hooked up on pins 4(RX) and 3(TX).
@@ -45,7 +46,7 @@ void loop()
   {
     gps.encode(ss.read());
 
-    // satellitesInView updates once per GSV group, which makes it a good trigger
+    // satellitesInView updates once per GSV message, and value() below clears the flag
     if (gps.satellitesInView.isUpdated())
     {
       Serial.print(F("In view: "));
