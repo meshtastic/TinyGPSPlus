@@ -32,8 +32,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <limits.h>
 
 /********************----- Options -----********************/
-//#define TINYGPSPLUS_OPTION_NO_CUSTOM_FIELDS
-//#define TINYGPSPLUS_OPTION_NO_STATISTICS
+// Define TINYGPS_OPTION_NO_STATISTICS to drop the sentence counters.
+// NOTE the spelling: the guards below and the constructor both read TINYGPS_OPTION_NO_STATISTICS. This
+// comment used to advertise TINYGPSPLUS_OPTION_NO_STATISTICS, which only the constructor honoured -- so
+// defining the advertised name removed the initialisers while leaving the members declared, and every
+// counter started as garbage. There is one spelling now.
+//#define TINYGPS_OPTION_NO_STATISTICS
 /**************************************************/
 
 #define _GPS_VERSION "1.0.3" // software version of this library
@@ -49,7 +53,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define _GPS_MAX_FIELD_SIZE 15
 #endif
 
-enum {GPS_SENTENCE_GPGGA, GPS_SENTENCE_GPRMC, GPS_SENTENCE_GPGSV, GPS_SENTENCE_OTHER};
+enum {GPS_SENTENCE_GPGGA, GPS_SENTENCE_GPRMC, GPS_SENTENCE_GPGSV, GPS_SENTENCE_GPGSA, GPS_SENTENCE_OTHER};
 
 struct RawDegrees
 {
@@ -207,39 +211,24 @@ private:
 
 struct TinyGPSTrackedSattelites
 {
-   uint8_t prn;      //"pseudo-random noise" sequences, or Gold codes. GPS sats are listed here http://en.wikipedia.org/wiki/List_of_GPS_satellites
-   uint8_t strength; //in dB
+   uint8_t prn;       //"pseudo-random noise" sequences, or Gold codes. GPS sats are listed here http://en.wikipedia.org/wiki/List_of_GPS_satellites
+   uint8_t strength;  //in dB
+   uint8_t elevation; //degrees above the horizon, 0-90
+   uint16_t azimuth;  //degrees true, 0-359
 };
 
-struct TinyGPSHDOP : TinyGPSDecimal
+// Dilution of precision, reported by NMEA in hundredths. PDOP and VDOP come from GSA; HDOP from GGA.
+struct TinyGPSDOP : TinyGPSDecimal
 {
-   double hdop() { return value() / 100.0; }
+   double dop() { return value() / 100.0; }
+};
+
+struct TinyGPSHDOP : TinyGPSDOP
+{
+   double hdop() { return dop(); }
 };
 
 class TinyGPSPlus;
-
-#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
-class TinyGPSCustom : public TinyGPSDatum<uint8_t>
-{
-public:
-   TinyGPSCustom() {};
-   TinyGPSCustom(TinyGPSPlus &gps, const char *sentenceName, int termNumber);
-   void begin(TinyGPSPlus &gps, const char *_sentenceName, int _termNumber);
-
-   const char *value() { flags &= (~FLAG_UPDATED); return buffer; }
-
-private:
-   void commit(uint32_t timestamp);
-   void set(const char *term);
-
-   char stagingBuffer[_GPS_MAX_FIELD_SIZE + 1] = {0};
-   char buffer[_GPS_MAX_FIELD_SIZE + 1] = {0};
-   const char *sentenceName = nullptr;
-   int termNumber = 0;
-   friend class TinyGPSPlus;
-   TinyGPSCustom *next = nullptr;
-};
-#endif
 
 #ifndef TINYGPS_MAX_SATS
 #define TINYGPS_MAX_SATS 20
@@ -258,9 +247,13 @@ public:
   TinyGPSSpeed speed;
   TinyGPSCourse course;
   TinyGPSAltitude altitude;
-  TinyGPSInteger satellites;
+  TinyGPSInteger satellites;        // satellites USED in the solution (GGA); 0 whenever there is no fix
+  TinyGPSInteger satellitesInView;  // satellites the receiver can SEE (GSV), which is non-zero without a fix
   TinyGPSTrackedSattelites trackedSatellites[TINYGPS_MAX_SATS];
-  TinyGPSHDOP hdop;
+  TinyGPSHDOP hdop;                 // horizontal dilution (GGA)
+  TinyGPSDOP pdop;                  // position dilution (GSA term 15)
+  TinyGPSDOP vdop;                  // vertical dilution (GSA term 17)
+  TinyGPSInteger fixType;           // GSA term 2: 1 = no fix, 2 = 2D, 3 = 3D
   TinyGPSAltitude geoidHeight;
 
   static const char *libraryVersion() { return _GPS_VERSION; }
@@ -322,14 +315,6 @@ private:
     				7 = Manual input mode
     				8 = Simulation mode
    	   	   	   	  */
-
-#ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
-  // custom element support
-  friend class TinyGPSCustom;
-  TinyGPSCustom *customElts = nullptr;
-  TinyGPSCustom *customCandidates = nullptr;
-  void insertCustom(TinyGPSCustom *pElt, const char *sentenceName, int index);
-#endif
 
 #ifndef TINYGPS_OPTION_NO_STATISTICS
   // statistics
